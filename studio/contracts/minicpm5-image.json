@@ -1,0 +1,6 @@
+{
+  "image_id": "sha256:b8d6bf8e6c1934a82d8c99156061e0a44aed956ea021f73276fc07bf74c88e5e",
+  "image_ref": "ghcr.io/eliovp/paiton-vllm-plugin@sha256:b8d6bf8e6c1934a82d8c99156061e0a44aed956ea021f73276fc07bf74c88e5e",
+  "version": "minicpm5-2b-w4a16-rdna4-v1.0.0",
+  "publication_status": "published"
+}

@@ -1,0 +1,14 @@
+{
+  "diffusion_models/wan2.2_ti2v_5B_fp16.safetensors": {
+    "bytes": 9999658848
+  },
+  "diffusion_models/fastwan22_5b_fullattn_comfy_bf16.safetensors": {
+    "bytes": 9999659744
+  },
+  "text_encoders/umt5_xxl_fp8_e4m3fn_scaled.safetensors": {
+    "bytes": 6735906897
+  },
+  "vae/wan2.2_vae.safetensors": {
+    "bytes": 1409400960
+  }
+}

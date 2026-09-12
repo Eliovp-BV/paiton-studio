@@ -1,0 +1,368 @@
+.gpt-studio {
+  display: grid;
+  grid-template-columns: 220px minmax(0, 1fr);
+  gap: 24px;
+  min-height: calc(100vh - 180px);
+}
+.gpt-history {
+  border-right: 1px solid #303130;
+  padding: 12px 20px 20px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+.gpt-history-title {
+  display: flex;
+  gap: 9px;
+  align-items: center;
+}
+.gpt-history button {
+  text-align: left;
+  justify-content: flex-start;
+  overflow-wrap: anywhere;
+}
+.gpt-chat-list {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  max-height: 58vh;
+  overflow: auto;
+}
+.gpt-chat-list button {
+  border-color: transparent;
+  background: transparent;
+}
+.gpt-chat-list .selected {
+  background: #30312b;
+  border-color: #695c42;
+  color: #f7e4bd;
+}
+.gpt-history small {
+  margin-top: auto;
+  color: #a9aaa4;
+  line-height: 1.8;
+}
+.gpt-conversation {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  height: calc(100vh - 170px);
+  min-height: 600px;
+}
+.gpt-conversation header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 8px 20px;
+  border-bottom: 1px solid #2b2c28;
+}
+.gpt-conversation h1 {
+  font-size: 27px;
+  margin: 6px 0 0;
+}
+.gpt-conversation h1 span {
+  color: #f7e4bd;
+}
+.gpt-local {
+  color: #f5dfb2;
+  font-size: 12px;
+  border: 1px solid #504632;
+  border-radius: 20px;
+  padding: 7px 12px;
+}
+.gpt-transcript {
+  overflow: auto;
+  flex: 1;
+  min-height: 0;
+  padding: 28px max(8px, calc((100% - 840px) / 2));
+  scroll-behavior: smooth;
+}
+.gpt-welcome {
+  max-width: 700px;
+  margin: 7vh auto;
+  text-align: center;
+}
+.gpt-welcome > svg {
+  color: #f7e4bd;
+}
+.gpt-welcome h2 {
+  font-size: 32px;
+  margin: 20px 0 10px;
+}
+.gpt-welcome p {
+  color: #b7b9b0;
+  line-height: 1.8;
+}
+.gpt-welcome > div {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-top: 34px;
+}
+.gpt-welcome button {
+  padding: 18px;
+  justify-content: space-between;
+  background: #1c1e19;
+  border-color: #393e2e;
+}
+.gpt-turn {
+  margin-bottom: 34px;
+}
+.gpt-user {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  background: #2b2d25;
+  border-radius: 20px 20px 5px 20px;
+  padding: 14px 20px;
+  margin-left: auto;
+  max-width: 85%;
+  width: fit-content;
+  line-height: 1.6;
+}
+.gpt-assistant {
+  display: flex;
+  gap: 16px;
+  margin-top: 25px;
+}
+.gpt-avatar {
+  flex-shrink: 0;
+  background: #f7e3bb;
+  color: #201a0e;
+  width: 28px;
+  height: 28px;
+  border-radius: 9px;
+  display: grid;
+  place-items: center;
+}
+.gpt-response {
+  min-width: 0;
+  flex: 1;
+}
+.gpt-prose {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  line-height: 1.8;
+}
+.gpt-code {
+  background: #11140e;
+  border: 1px solid #414739;
+  border-radius: 12px;
+  overflow: hidden;
+  margin: 14px 0;
+}
+.gpt-code > div {
+  padding: 8px 14px;
+  background: #262b20;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  color: #c9cebc;
+  font-size: 12px;
+}
+.gpt-code pre {
+  overflow: auto;
+  padding: 16px;
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.7;
+}
+.gpt-code button {
+  padding: 5px;
+}
+.gpt-meta {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;
+  font-size: 11px;
+  color: #a7ac9c;
+  margin-top: 15px;
+}
+.gpt-meta button {
+  padding: 5px;
+}
+.gpt-meta strong {
+  color: #efcb7f;
+}
+.gpt-response figure {
+  margin: 0;
+}
+.gpt-response img {
+  max-width: 100%;
+  max-height: 520px;
+  border-radius: 16px;
+}
+.gpt-response figcaption {
+  font-size: 12px;
+  color: #bcc1b0;
+  margin-top: 10px;
+}
+.gpt-response a {
+  color: #f7e4bd;
+}
+.gpt-doc-count {
+  display: flex;
+  justify-content: flex-end;
+  gap: 5px;
+  color: #b1b8a1;
+  font-size: 12px;
+}
+.gpt-sources {
+  font-size: 12px;
+  color: #b3baa5;
+  margin: 15px 0;
+}
+.gpt-stage {
+  color: #f7e4bd;
+}
+.gpt-composer {
+  margin: 12px auto 0;
+  width: 100%;
+  max-width: 880px;
+  border: 1px solid #535844;
+  border-radius: 20px;
+  background: #20221d;
+  padding: 13px 16px;
+  box-shadow: 0 16px 35px #0004;
+}
+.gpt-composer textarea {
+  width: 100%;
+  min-height: 66px;
+  max-height: 170px;
+  background: transparent;
+  border: 0;
+  resize: vertical;
+  box-shadow: none;
+  padding: 5px;
+  color: #f5f3ee;
+  font: inherit;
+}
+.gpt-compose-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.gpt-compose-actions button {
+  padding: 8px 10px;
+}
+.gpt-compose-actions select {
+  width: auto;
+  max-width: 190px;
+  font-size: 12px;
+  padding: 8px;
+  background: #2b2f24;
+}
+.gpt-send {
+  margin-left: auto;
+}
+.gpt-composer > details {
+  margin-top: 12px;
+  font-size: 12px;
+  color: #bcc3ab;
+}
+.gpt-composer > details p {
+  line-height: 1.7;
+}
+.gpt-disclaimer {
+  text-align: center;
+  font-size: 11px;
+  color: #999f8e;
+  margin: 12px 0 1px;
+}
+.gpt-files {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.gpt-files span {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  font-size: 12px;
+  background: #303629;
+  border-radius: 8px;
+  padding: 5px 8px;
+}
+.gpt-files button {
+  padding: 2px;
+}
+@media (max-width: 1050px) {
+  .gpt-studio {
+    grid-template-columns: 160px minmax(0, 1fr);
+    gap: 12px;
+  }
+  .gpt-transcript {
+    padding: 20px 4px;
+  }
+}
+@media (max-width: 760px) {
+  .gpt-studio {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+  }
+  .gpt-history {
+    border: 0;
+    padding: 0;
+    gap: 8px;
+  }
+  .gpt-history-title,
+  .gpt-history small {
+    display: none;
+  }
+  .gpt-chat-list {
+    flex-direction: row;
+    max-height: 70px;
+  }
+  .gpt-chat-list button {
+    min-width: 140px;
+    max-width: 190px;
+    font-size: 12px;
+  }
+  .gpt-conversation {
+    height: 80vh;
+    min-height: 560px;
+  }
+  .gpt-welcome {
+    margin: 30px auto;
+  }
+  .gpt-welcome h2 {
+    font-size: 24px;
+  }
+  .gpt-welcome > div {
+    gap: 7px;
+  }
+  .gpt-welcome button {
+    font-size: 12px;
+    padding: 10px;
+  }
+  .gpt-composer {
+    padding: 10px;
+  }
+  .gpt-compose-actions {
+    gap: 5px;
+  }
+  .gpt-compose-actions select {
+    max-width: 150px;
+  }
+  .gpt-assistant {
+    gap: 9px;
+  }
+  .gpt-user {
+    max-width: 95%;
+  }
+}
+
+.gpt-wait-note {
+  border-left: 2px solid #ffdc00;
+  padding: 0.1rem 1rem;
+  margin: 0.8rem 0;
+  font-size: 0.85rem;
+  color: var(--muted, #aaa);
+}
+.gpt-wait-note p {
+  margin: 0.4rem 0;
+}

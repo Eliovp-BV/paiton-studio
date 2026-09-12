@@ -1,0 +1,5 @@
+# Optional native approval backends. Linux direct sending remains unavailable.
+winrt-runtime>=3.0; sys_platform == 'win32'
+winrt-Windows.Foundation>=3.0; sys_platform == 'win32'
+winrt-Windows.Security.Credentials.UI>=3.0; sys_platform == 'win32'
+pyobjc-framework-LocalAuthentication>=10; sys_platform == 'darwin'

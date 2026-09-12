@@ -1,0 +1,89 @@
+{
+  "1": {
+    "class_type": "PaitonWanFastLoader",
+    "inputs": {
+      "engine": "paiton"
+    }
+  },
+  "2": {
+    "class_type": "PaitonWanFastSettings",
+    "inputs": {
+      "duration": "2 seconds (49 frames)",
+      "resolution": "720 class (1280 x 704)",
+      "orientation": "Landscape"
+    }
+  },
+  "3": {
+    "class_type": "PaitonWanTextEncode",
+    "inputs": {
+      "text": "A small red fox walks across a sunlit woodland clearing, pauses and turns its head toward the camera. Detailed natural fur, coherent anatomy, smooth continuous motion. The camera slowly tracks right.",
+      "clip": [
+        "1",
+        1
+      ]
+    }
+  },
+  "7": {
+    "class_type": "PaitonFastWanSampler",
+    "inputs": {
+      "seed": 1201,
+      "model": [
+        "1",
+        0
+      ],
+      "positive": [
+        "3",
+        0
+      ],
+      "width": [
+        "2",
+        0
+      ],
+      "height": [
+        "2",
+        1
+      ],
+      "frames": [
+        "2",
+        2
+      ]
+    }
+  },
+  "8": {
+    "class_type": "VAEDecode",
+    "inputs": {
+      "samples": [
+        "7",
+        0
+      ],
+      "vae": [
+        "1",
+        2
+      ]
+    }
+  },
+  "9": {
+    "class_type": "CreateVideo",
+    "inputs": {
+      "fps": 24,
+      "images": [
+        "8",
+        0
+      ]
+    }
+  },
+  "10": {
+    "class_type": "SaveVideo",
+    "inputs": {
+      "filename_prefix": "wan/fast",
+      "format": "mp4",
+      "format.codec": "h264",
+      "format.codec.encoding": "re-encode",
+      "format.codec.encoding.crf": 18,
+      "video": [
+        "9",
+        0
+      ]
+    }
+  }
+}

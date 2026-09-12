@@ -1,0 +1,34 @@
+{
+  "README.md": {
+    "bytes": 110854,
+    "sha256": "3832c333f5818e3cd60ece1527e398288d2df33ccb90ed861c05ce8deb84deb6"
+  },
+  "chat_template.jinja": {
+    "bytes": 9060,
+    "sha256": "cc945752db555d60949b16989df4ccfeb52a313d6b4b5c5229dd786e2e9fcf1c"
+  },
+  "config.json": {
+    "bytes": 2700,
+    "sha256": "581f0497d90e2ed2a989b821aa610de586bd5a7989e7dff32e1c463597f2de9b"
+  },
+  "generation_config.json": {
+    "bytes": 213,
+    "sha256": "9ac4f32e5f32358697a9f438a3ea89ef80e6ba786c72c49e932f9f21c122fdb1"
+  },
+  "model.safetensors": {
+    "bytes": 2099615880,
+    "sha256": "b5d5133349bb95be18868890d8064a9bfb145e720f64e7e0ff16b905c376bed4"
+  },
+  "special_tokens_map.json": {
+    "bytes": 551,
+    "sha256": "82d96d7a9e6ced037f12394b7ea6a5b02e6ca87e0d11edaa8d60d9be857ce7db"
+  },
+  "tokenizer.json": {
+    "bytes": 9894271,
+    "sha256": "3e065a558a034185fe299917b398685c1facd0169a9eea1e629eb30c171fed81"
+  },
+  "tokenizer_config.json": {
+    "bytes": 94391,
+    "sha256": "e9b1064649e771d7a8e15637c68b2d2749724877ba3648bd74a4ece31c26303b"
+  }
+}

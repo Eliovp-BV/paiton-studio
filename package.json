@@ -1,0 +1,22 @@
+{
+  "name": "paiton-studio",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 127.0.0.1",
+    "build": "vite build",
+    "test:ui": "node tests/browser.mjs"
+  },
+  "dependencies": {
+    "lucide-react": "0.468.0",
+    "react": "19.1.1",
+    "react-dom": "19.1.1"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "4.7.0",
+    "playwright": "^1.63.0",
+    "prettier": "3.6.2",
+    "vite": "^6.4.3"
+  }
+}

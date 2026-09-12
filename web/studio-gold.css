@@ -1,0 +1,1915 @@
+/* Studio 2.0: warm editorial identity. Layout overrides retain existing controls. */
+:root {
+  --studio-bg: #080908;
+  --studio-bg-deep: #050605;
+  --studio-surface: #101110;
+  --studio-surface-raised: #181915;
+  --studio-border: #ffffff16;
+  --studio-border-active: #f1c66d80;
+  --studio-gold: #f1c66d;
+  --studio-gold-bright: #ffdc91;
+  --studio-gold-muted: #9c7941;
+  --studio-lime: var(--studio-gold);
+  --studio-text: #f4f1e9;
+  --studio-text-muted: #aaa9a1;
+  --studio-success: #65de83;
+  --studio-glow: 0 0 24px #e6b85b12;
+  --accent: var(--studio-gold);
+  --on-accent: #211706;
+  --muted: var(--studio-text-muted);
+  --studio-display: Georgia, "Times New Roman", serif;
+  font-size: 15px;
+  color-scheme: dark;
+}
+body {
+  background: var(--studio-bg);
+  color: var(--studio-text);
+}
+:root .studio-shell {
+  max-width: none;
+  margin: 0;
+  min-height: 100vh;
+  border: 0;
+  border-radius: 0;
+  grid-template-columns: 218px minmax(0, 1fr);
+  background: var(--studio-bg);
+  box-shadow: none;
+}
+:root .studio-shell .sidebar {
+  background:
+    linear-gradient(180deg, #080a09e8 55%, #080a0988),
+    url("./art/local-machine-gold.svg") 66% 100% / auto 440px no-repeat;
+  border-right: 1px solid var(--studio-border);
+  padding: 28px 13px 14px;
+  top: 0;
+  height: 100vh;
+  border-radius: 0;
+}
+:root .studio-shell .brand {
+  font-family: var(--studio-display);
+  font-size: 31px;
+  font-weight: 400;
+  line-height: 1;
+  gap: 12px;
+  margin: 0 8px 24px;
+  align-items: flex-start;
+  color: var(--studio-gold-bright);
+}
+:root .studio-shell .brand b {
+  display: block;
+  color: var(--studio-text);
+  font-weight: 400;
+}
+:root .studio-shell .brand small {
+  display: block;
+  font: 11px/1.6 system-ui;
+  color: var(--muted);
+  margin-top: 10px;
+  white-space: nowrap;
+}
+:root .studio-shell .brand .paiton-mark {
+  width: 35px;
+  height: 42px;
+  margin-top: 3px;
+  color: var(--studio-gold);
+}
+:root .studio-shell .sidebar .nav {
+  font-size: 14px;
+  min-height: 36px;
+  border-radius: 5px;
+  padding: 9px 12px;
+  border-color: transparent;
+  color: #c5c5bf;
+}
+:root .studio-shell .sidebar .nav svg {
+  width: 19px;
+  height: 19px;
+}
+:root .studio-shell .sidebar .nav.active {
+  color: var(--studio-gold-bright);
+  background: linear-gradient(90deg, #ad82372b, #ad823705);
+  box-shadow: inset 3px 0 #f1c66d;
+  border: 0;
+}
+:root .studio-shell .sidebar .nav:hover {
+  background: #b18e3c14;
+}
+:root .studio-shell .sidebar .nav-section {
+  font-size: 9px;
+  letter-spacing: 2px;
+}
+:root .studio-shell .topbar {
+  background: #090b09eb;
+  border-bottom: 1px solid var(--studio-border);
+  padding: 12px 24px;
+  gap: 16px;
+  min-height: 88px;
+  box-shadow: none;
+}
+:root .studio-shell .topbar .primary {
+  background: #161813;
+  border-color: var(--studio-border);
+  color: var(--studio-text);
+  box-shadow: none;
+}
+:root .studio-shell .studio-command {
+  max-width: 760px;
+}
+:root .studio-shell .studio-command form {
+  background: linear-gradient(110deg, #1b1c18, #111310);
+  border: 1px solid #c5a66d55;
+  box-shadow: inset 0 1px #ffffff06;
+  border-radius: 10px;
+  min-height: 46px;
+}
+:root .studio-shell .studio-command svg {
+  color: var(--studio-gold);
+}
+:root .studio-shell .studio-command input {
+  font-size: 14px;
+}
+:root .studio-shell .topbar .project-title {
+  color: var(--muted);
+}
+:root .studio-shell main[data-studio-page] {
+  padding: 22px 26px 36px;
+  max-width: none;
+  background: transparent;
+}
+:root .studio-shell .primary,
+:root .studio-shell .button.primary {
+  background: linear-gradient(115deg, #ffdf94, #f0ba5d);
+  color: #221705;
+  border-color: #fbd181;
+  box-shadow: 0 3px 18px #f6bd4f18;
+  font-weight: 650;
+}
+:root .studio-shell .primary:hover {
+  background: linear-gradient(115deg, #ffe8b3, #ffd17d);
+  box-shadow: 0 4px 22px #f6bd4f26;
+}
+:root .studio-shell .primary:disabled {
+  box-shadow: none;
+}
+:root .studio-shell button,
+:root .studio-shell input,
+:root .studio-shell textarea,
+:root .studio-shell select,
+:root .studio-shell .button {
+  background-color: #151714;
+  border-color: var(--studio-border);
+  color: var(--studio-text);
+}
+:root .studio-shell button:hover,
+:root .studio-shell .button:hover {
+  background-color: #20221c;
+  border-color: #e0bd6855;
+}
+:root .studio-shell input:focus,
+:root .studio-shell textarea:focus,
+:root .studio-shell select:focus,
+:root .studio-shell button:focus-visible,
+:root .studio-shell a:focus-visible {
+  outline: 2px solid var(--studio-gold);
+  outline-offset: 3px;
+}
+:root .studio-shell .panel {
+  background: linear-gradient(135deg, #151714, #0d0f0d);
+  border-color: var(--studio-border);
+  box-shadow: inset 0 1px #ffffff04;
+  border-radius: 11px;
+}
+:root .studio-shell .chosen,
+:root .studio-shell [aria-pressed="true"] {
+  border-color: var(--studio-gold-muted);
+  color: var(--studio-gold-bright);
+}
+:root .studio-shell .status-dot,
+:root .studio-shell .badge.ready,
+:root .studio-shell .machine-online {
+  color: var(--studio-success);
+}
+:root .studio-shell .status-dot {
+  background: var(--studio-success);
+  box-shadow: 0 0 9px #65de8330;
+}
+:root .studio-shell .status-dot.busy {
+  background: var(--studio-gold);
+}
+:root .studio-shell .local-ai-chip,
+:root .studio-shell .gpt-local {
+  color: var(--studio-success);
+  border-color: #ffffff12;
+  background: #111610;
+}
+:root .studio-shell .eyebrow {
+  color: #aaa89c;
+  font-size: 10px;
+  letter-spacing: 2.6px;
+}
+:root .studio-shell .lead {
+  color: #babbb4;
+  font-size: 16px;
+  line-height: 1.65;
+}
+:root .studio-shell h1 {
+  font-family: var(--studio-display);
+  font-weight: 500;
+  letter-spacing: -1.6px;
+  font-size: clamp(36px, 3.2vw, 60px);
+  line-height: 1.07;
+}
+:root .studio-shell h2 {
+  letter-spacing: -0.3px;
+}
+:root .studio-shell .section-heading h2 {
+  font-size: 20px;
+}
+:root .studio-shell .editorial-section-title {
+  font: 36px/1.2 var(--studio-display);
+  margin: 25px 0 18px;
+}
+:root .studio-shell .stage-strip {
+  background: linear-gradient(100deg, #151812, #090b09);
+  border-color: var(--studio-border);
+  border-radius: 10px;
+}
+:root .studio-shell .stage-strip .stage-active {
+  border-color: var(--studio-gold);
+}
+:root .studio-shell .editorial-hero {
+  position: relative;
+  min-height: 280px;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  isolation: isolate;
+}
+:root .studio-shell .machine-art {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: 65% 60%;
+  z-index: -2;
+  pointer-events: none;
+}
+:root .studio-shell .editorial-hero:after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    90deg,
+    #080908 0%,
+    #080908b8 32%,
+    transparent 75%
+  );
+  z-index: -1;
+}
+:root .studio-shell .editorial-copy {
+  max-width: 75%;
+  padding: 22px 0;
+}
+:root .studio-shell .editorial-hero h1 {
+  font-size: clamp(40px, 3.8vw, 70px);
+  max-width: 650px;
+  margin: 18px 0 15px;
+}
+:root .studio-shell .editorial-hero h1 em {
+  color: var(--studio-gold);
+  font-style: normal;
+}
+:root .studio-shell .editorial-hero p {
+  font-size: 16px;
+  line-height: 1.65;
+  max-width: 490px;
+  color: #bbbdb5;
+}
+:root .studio-shell .editorial-hero.compact {
+  min-height: 218px;
+}
+:root .studio-shell .editorial-hero.compact h1 {
+  font-size: clamp(38px, 3.6vw, 64px);
+  max-width: 580px;
+}
+:root .studio-shell .creation-identity {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 370px;
+  gap: 24px;
+  align-items: center;
+  margin-bottom: 20px;
+}
+:root .studio-shell .machine-status {
+  border: 1px solid var(--studio-border);
+  border-radius: 12px;
+  background: linear-gradient(120deg, #151714, #0a0c0a);
+  padding: 20px;
+  min-width: 0;
+}
+:root .studio-shell .machine-status h2 {
+  margin: 0;
+  font: 22px var(--studio-display);
+}
+:root .studio-shell .machine-status > p {
+  font-size: 12px;
+  color: var(--muted);
+  margin: 8px 0 15px;
+}
+:root .studio-shell .machine-online {
+  font-size: 12px;
+  white-space: nowrap;
+}
+:root .studio-shell .machine-device {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  padding: 12px;
+  border: 1px solid var(--studio-border);
+  border-radius: 7px;
+}
+:root .studio-shell .machine-device svg {
+  color: var(--studio-gold);
+  flex-shrink: 0;
+}
+:root .studio-shell .machine-device strong {
+  display: block;
+  font-size: 14px;
+}
+:root .studio-shell .machine-device small {
+  display: block;
+  color: var(--muted);
+  font-size: 11px;
+  margin-top: 6px;
+}
+:root .studio-shell .machine-meters {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  padding-top: 18px;
+  text-align: center;
+}
+:root .studio-shell .meter-ring {
+  width: 65px;
+  height: 65px;
+  background: conic-gradient(var(--studio-gold) var(--meter-value), #30332c 0);
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  margin: 0 auto 9px;
+  position: relative;
+}
+:root .studio-shell .meter-ring:before {
+  content: "";
+  position: absolute;
+  inset: 4px;
+  border-radius: 50%;
+  background: #10130f;
+}
+:root .studio-shell .meter-ring strong {
+  position: relative;
+  font-size: 17px;
+  font-weight: 500;
+}
+:root .studio-shell .machine-meter b,
+:root .studio-shell .machine-thermal b {
+  display: block;
+  font-size: 12px;
+  font-weight: 500;
+}
+:root .studio-shell .machine-meter small,
+:root .studio-shell .machine-thermal small {
+  display: block;
+  font-size: 10px;
+  color: var(--muted);
+  margin-top: 5px;
+}
+:root .studio-shell .machine-thermal > strong {
+  height: 65px;
+  display: grid;
+  place-items: center;
+  font: 32px var(--studio-display);
+  margin-bottom: 9px;
+}
+:root .studio-shell .machine-details {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  margin-top: 18px;
+  padding: 12px;
+  gap: 10px;
+  background: #ffffff03;
+  text-align: left;
+}
+:root .studio-shell .machine-details > svg:first-child {
+  color: var(--studio-success);
+}
+:root .studio-shell .machine-details span {
+  font-size: 12px;
+}
+:root .studio-shell .machine-details small {
+  display: block;
+  color: var(--muted);
+  font-size: 10px;
+  margin-top: 4px;
+}
+:root .studio-shell .creative-home {
+  position: relative;
+  isolation: isolate;
+  padding: 0;
+  min-height: 0;
+}
+:root .studio-shell .workspace-scene {
+  inset: 0 390px auto 0;
+  height: 420px;
+  opacity: 1;
+}
+:root .studio-shell .workspace-scene .environment-art {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: 65% 50%;
+  filter: none;
+}
+:root .studio-shell .workspace-scene .hero-shade {
+  background:
+    linear-gradient(90deg, #080908 0%, #08090877 35%, transparent 65%),
+    linear-gradient(0deg, #080908, transparent 35%);
+}
+:root .studio-shell .cinematic-hero {
+  min-height: 330px;
+  padding: 20px 0;
+  max-width: calc(100% - 405px);
+  display: flex;
+  align-items: center;
+}
+:root .studio-shell .cinematic-copy {
+  padding: 0;
+  max-width: 740px;
+}
+:root .studio-shell .cinematic-copy h1 {
+  font-family: var(--studio-display);
+  font-weight: 500;
+  font-size: clamp(56px, 5.7vw, 104px);
+  line-height: 0.98;
+  letter-spacing: -3px;
+  margin: 20px 0;
+}
+:root .studio-shell .cinematic-copy h1 em {
+  display: block;
+  color: var(--studio-gold);
+  font-style: normal;
+}
+:root .studio-shell .cinematic-copy p {
+  font-size: 19px;
+  max-width: 440px;
+  color: #c6c7be;
+}
+:root .studio-shell .hero-local {
+  font-size: 12px;
+  color: #abae9f;
+}
+:root .studio-shell .hero-local svg {
+  color: var(--studio-gold);
+}
+:root .studio-shell .home-idea {
+  max-width: calc(100% - 405px);
+  padding: 16px 20px;
+  border: 1px solid #b7924855;
+  border-radius: 13px;
+  background: linear-gradient(100deg, #171a15, #0d100c);
+  margin: 10px 0 24px;
+}
+:root .studio-shell .home-idea .studio-command {
+  max-width: none;
+  margin-top: 10px;
+}
+:root .studio-shell .home-idea .studio-command form {
+  border: 0;
+  box-shadow: none;
+  background: none;
+}
+:root .studio-shell .home-idea .studio-command input {
+  font-size: 21px;
+  padding-left: 4px;
+}
+:root .studio-shell .home-idea .studio-command form > button {
+  background: linear-gradient(120deg, #ffe3a3, #e9b65b);
+  border-radius: 50%;
+  height: 43px;
+  width: 43px;
+}
+:root .studio-shell .home-idea .studio-command form > button svg {
+  color: #211704;
+}
+:root .studio-shell .home-content {
+  display: block;
+}
+:root .studio-shell .creative-journey {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 370px;
+  padding: 0;
+  border: 0;
+  background: none;
+  box-shadow: none;
+  border-radius: 0;
+}
+:root .studio-shell .creative-journey .machine-status {
+  padding: 20px;
+}
+:root .studio-shell .creative-journey blockquote {
+  margin: 18px 0;
+  padding: 24px 18px;
+  font: 26px/1.3 var(--studio-display);
+  text-align: center;
+  border: 1px solid var(--studio-border);
+  background: url("./art/local-machine-gold.svg") 20% 65% / cover;
+  border-radius: 10px;
+}
+:root .studio-shell .creative-journey blockquote em {
+  color: var(--studio-gold);
+  font-style: normal;
+}
+:root .studio-shell .creative-journey blockquote small {
+  display: block;
+  font: 8px system-ui;
+  letter-spacing: 3px;
+  margin-top: 17px;
+  color: #b6a786;
+}
+:root .studio-shell .home-quick {
+  padding: 16px;
+  border: 1px solid var(--studio-border);
+  border-radius: 10px;
+}
+:root .studio-shell .home-quick h3 {
+  margin: 0 0 12px;
+  font-size: 14px;
+}
+:root .studio-shell .creative-journey .home-quick button {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  font-size: 12px;
+  margin: 3px 0;
+  padding: 8px;
+  background: none;
+  border: 0;
+}
+:root .studio-shell .home-quick button svg {
+  color: var(--studio-gold);
+}
+:root .studio-shell .home-quick button svg:last-child {
+  margin-left: auto;
+}
+:root .studio-shell .creative-actions {
+  width: calc(100% - 405px);
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  margin: 0 0 26px;
+}
+:root .studio-shell .creative-action {
+  min-height: 125px;
+  position: relative;
+  padding: 16px;
+  display: flex;
+  align-items: flex-start;
+  flex-direction: column;
+  gap: 12px;
+  border-radius: 28px 12px 28px 12px;
+  border: 1px solid #a8864355;
+  background:
+    linear-gradient(110deg, #0c100caa, #0a0c09b0),
+    url("./art/local-machine-gold.svg") 75% 50% / auto 220px;
+}
+:root .studio-shell .creative-action > svg {
+  color: var(--studio-gold);
+}
+:root .studio-shell .creative-action > svg:last-child {
+  position: absolute;
+  right: 12px;
+  bottom: 12px;
+}
+:root .studio-shell .creative-action .action-number {
+  display: block;
+  position: absolute;
+  right: 14px;
+  top: 12px;
+  color: #c2a875;
+  font: 12px var(--studio-display);
+}
+:root .studio-shell .creative-action strong {
+  font-size: 13px;
+}
+:root .studio-shell .creative-action small {
+  font-size: 10px;
+  max-width: 145px;
+}
+:root .studio-shell .creative-project-grid {
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 12px;
+}
+:root .studio-shell .creative-project {
+  border-radius: 8px;
+  background: #10130f;
+  border: 1px solid var(--studio-border);
+  padding: 0 0 10px;
+}
+:root .studio-shell .creative-project .project-visual {
+  height: 132px;
+  border-radius: 7px 7px 0 0;
+  aspect-ratio: auto;
+}
+:root .studio-shell .creative-project .project-open > strong,
+:root .studio-shell .creative-project .project-open > small {
+  margin-left: 10px;
+  margin-right: 10px;
+}
+:root .studio-shell .new-project-tile {
+  min-height: 180px;
+  border-radius: 8px;
+}
+:root .studio-shell .home-start {
+  padding: 12px 0;
+  margin-top: 14px;
+}
+:root .studio-shell .resume-work {
+  margin: 12px 0;
+}
+:root .studio-shell .creative-project-grid .project-open:hover img {
+  transform: scale(1.035);
+}
+:root .studio-shell .visual-workbench {
+  display: grid;
+  grid-template-columns: minmax(0, 1.6fr) minmax(330px, 0.9fr);
+  gap: 20px;
+}
+:root .studio-shell .visual-canvas {
+  min-height: 420px;
+  background: #050705;
+  border: 1px solid #bd93434f;
+  border-radius: 10px;
+  overflow: hidden;
+}
+:root .studio-shell .visual-canvas img,
+:root .studio-shell .visual-canvas video {
+  max-height: 60vh;
+  width: 100%;
+  object-fit: contain;
+}
+:root .studio-shell .image-form {
+  padding: 20px;
+  border-radius: 10px;
+  background: #11140f;
+}
+:root .studio-shell .image-form .styles button {
+  border-radius: 6px;
+}
+:root .studio-shell .visual-workbench .primary {
+  min-height: 46px;
+}
+:root .studio-shell.route-image .asset-grid,
+:root .studio-shell.route-video .asset-grid {
+  display: flex;
+  overflow-x: auto;
+  gap: 12px;
+}
+:root .studio-shell.route-image .asset-grid > *,
+:root .studio-shell.route-video .asset-grid > * {
+  min-width: 160px;
+  max-width: 200px;
+}
+:root .studio-shell.route-video .visual-workbench {
+  grid-template-columns: minmax(0, 1fr) 390px;
+}
+:root .studio-shell.route-video .visual-canvas video {
+  min-height: 360px;
+  max-height: 65vh;
+}
+:root .studio-shell.route-write .document {
+  background: #eeece3;
+  color: #24251e;
+  border-radius: 4px;
+  box-shadow: 0 12px 45px #0005;
+}
+:root .studio-shell.route-write .document textarea {
+  font: 18px/1.85 var(--studio-display);
+  color: #292b23;
+  background: transparent;
+}
+:root .studio-shell.route-write .document input {
+  color: #24251e;
+}
+:root .studio-shell.route-write .document .helper {
+  color: #626559;
+}
+:root .studio-shell .capability-shelf {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 14px;
+  margin-bottom: 25px;
+}
+:root .studio-shell .capability-card {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  text-align: left;
+  padding: 0;
+  overflow: hidden;
+  background: #10130e;
+  border-radius: 12px;
+}
+:root .studio-shell .capability-art {
+  height: 145px;
+  display: grid;
+  place-items: center;
+  background:
+    radial-gradient(ellipse at center, #c5932633, transparent 65%),
+    url("./art/local-machine-gold.svg") 65% 65% / cover;
+}
+:root .studio-shell .capability-art svg {
+  color: var(--studio-gold);
+  filter: drop-shadow(0 0 12px #dca43d44);
+}
+:root .studio-shell .capability-copy {
+  padding: 16px;
+}
+:root .studio-shell .capability-copy strong {
+  font: 24px var(--studio-display);
+  display: block;
+}
+:root .studio-shell .capability-copy small {
+  display: block;
+  color: var(--muted);
+  font-size: 12px;
+  margin: 8px 0 14px;
+}
+:root .studio-shell .capability-card > svg {
+  margin: 0 16px 16px;
+  align-self: flex-end;
+  color: var(--studio-gold);
+}
+:root .studio-shell .installed-packages > summary {
+  font-size: 15px;
+  padding: 16px 0;
+  color: #bbb9ae;
+}
+:root .studio-shell .tools-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 15px;
+}
+:root .studio-shell .tools-grid .tool {
+  background: #11140f;
+}
+:root .studio-shell .tools-grid .tool-identity {
+  min-height: 65px;
+  background: none;
+}
+:root .studio-shell .tools-grid .tool h2 {
+  font: 23px var(--studio-display);
+}
+:root .studio-shell .settings-tabs {
+  padding: 8px;
+  border: 1px solid var(--studio-border);
+  border-radius: 10px;
+  background: #12150f;
+  gap: 8px;
+  margin: 18px 0;
+}
+:root .studio-shell .settings-tabs button {
+  flex: 1;
+  padding: 15px;
+  border: 0;
+  border-radius: 6px;
+  background: none;
+}
+:root .studio-shell .settings-tabs button.chosen {
+  background: linear-gradient(100deg, #80642540, #2a281d30);
+  box-shadow: inset 0 0 0 1px #d3ac6355;
+  color: var(--studio-gold-bright);
+}
+:root .studio-shell .settings-layout {
+  grid-template-columns: minmax(0, 1fr) 350px;
+  gap: 22px;
+}
+:root .studio-shell .preference-row {
+  background: #11150f;
+  border-color: #ffffff09;
+}
+:root .studio-shell .wiki-layout article {
+  max-width: 1000px;
+}
+:root .studio-shell .wiki-article h2 {
+  font: 34px var(--studio-display);
+}
+:root .studio-shell .wiki-layout aside button.chosen {
+  background: #c89b2820;
+  color: var(--studio-gold);
+}
+:root .studio-shell .agents-studio,
+:root .studio-shell .mcp-connections,
+:root .studio-shell .meeting-studio {
+  max-width: none;
+  width: 100%;
+}
+:root .studio-shell .meeting-transcript > div {
+  border-color: var(--studio-border);
+}
+:root .studio-shell .website-layout {
+  grid-template-columns: 310px minmax(0, 1fr);
+  gap: 18px;
+}
+:root .studio-shell .site-content {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 280px;
+  gap: 15px;
+  align-items: start;
+}
+:root .studio-shell .site-content .website-preview {
+  grid-column: 1;
+  grid-row: 1 / span 2;
+  min-width: 0;
+}
+:root .studio-shell .site-content .site-map {
+  grid-column: 2;
+  grid-row: 1;
+}
+:root .studio-shell .site-content .site-editor {
+  grid-column: 2;
+  grid-row: 2;
+}
+:root .studio-shell .site-content .site-empty,
+:root .studio-shell .site-content > .empty {
+  grid-column: 1 / -1;
+}
+:root .studio-shell .website-preview iframe {
+  min-height: 660px;
+}
+:root .studio-shell .site-editor .row {
+  display: block;
+}
+:root .studio-shell .site-editor input,
+:root .studio-shell .site-editor textarea {
+  max-width: 100%;
+}
+:root .studio-shell .site-editor .site-section-editor {
+  padding: 10px;
+}
+:root .studio-shell .site-map nav {
+  display: flex;
+  flex-direction: column;
+}
+:root .studio-shell .site-map button {
+  justify-content: flex-start;
+}
+:root .studio-shell .site-brief {
+  max-height: none;
+}
+:root .studio-shell .site-placeholder {
+  background: #151911;
+}
+:root .studio-shell .preview-toolbar {
+  background: #1a1c17;
+  border-color: var(--studio-border);
+}
+:root .studio-shell .preview-panel {
+  border-color: #d9ae5055;
+  box-shadow: 0 15px 45px #0004;
+}
+:root .studio-shell .delivery-layout {
+  grid-template-columns: 360px minmax(0, 1fr);
+}
+:root .studio-shell .delivery-preview {
+  background: radial-gradient(ellipse at center, #a7893020, #090c08 65%);
+}
+:root .studio-shell .delivery-frame {
+  box-shadow: 0 18px 55px #0008;
+  border: 1px solid #ad87494a;
+}
+:root .studio-shell .delivery-controls {
+  align-self: start;
+}
+:root .studio-shell .gpt-studio {
+  grid-template-columns: 185px minmax(0, 1fr) 300px;
+  gap: 20px;
+}
+:root .studio-shell .gpt-conversation {
+  height: calc(100vh - 165px);
+  min-height: 680px;
+}
+:root .studio-shell .gpt-conversation > header {
+  position: relative;
+  min-height: 155px;
+  background:
+    linear-gradient(90deg, #090b09, transparent),
+    url("./art/local-machine-gold.svg") 65% 50% / cover;
+  display: block;
+  padding: 20px 10px;
+}
+:root .studio-shell .gpt-conversation h1 {
+  font: 45px/0.98 var(--studio-display);
+  letter-spacing: -1px;
+  max-width: 400px;
+}
+:root .studio-shell .gpt-conversation h1 span {
+  color: var(--studio-gold);
+  display: block;
+}
+:root .studio-shell .gpt-context {
+  border-left: 1px solid var(--studio-border);
+  padding-left: 18px;
+  min-width: 0;
+}
+:root .studio-shell .gpt-context h2 {
+  font: 22px var(--studio-display);
+  margin: 0 0 14px;
+}
+:root .studio-shell .gpt-context section {
+  padding: 18px 0;
+  border-bottom: 1px solid var(--studio-border);
+}
+:root .studio-shell .gpt-context .gpt-model-mode {
+  display: block;
+  min-width: 0;
+}
+:root .studio-shell .gpt-context .model-choice {
+  min-width: 0;
+}
+:root .studio-shell .gpt-context .machine-status {
+  padding: 14px;
+  margin-top: 18px;
+}
+:root .studio-shell .gpt-context .machine-device {
+  padding: 8px;
+}
+:root .studio-shell .gpt-context .machine-device strong {
+  font-size: 12px;
+}
+:root .studio-shell .gpt-context .machine-meters {
+  gap: 5px;
+}
+:root .studio-shell .gpt-context .meter-ring {
+  height: 55px;
+  width: 55px;
+}
+:root .studio-shell .gpt-context .machine-thermal > strong {
+  height: 55px;
+}
+:root .studio-shell .gpt-context .machine-status .section-heading {
+  display: block;
+}
+:root .studio-shell .gpt-context .machine-status h2 {
+  margin-bottom: 8px;
+}
+:root .studio-shell .gpt-context .reply-speed {
+  display: flex;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+:root .studio-shell .gpt-context .reply-speed button {
+  font-size: 11px;
+}
+:root .studio-shell .gpt-context .fast-model-note {
+  font-size: 11px;
+}
+:root .studio-shell .gpt-transcript {
+  padding: 24px 8px;
+}
+:root .studio-shell .gpt-user {
+  background: #20231d;
+  border-color: var(--studio-border);
+}
+:root .studio-shell .gpt-assistant {
+  background: transparent;
+}
+:root .studio-shell .gpt-avatar {
+  color: var(--studio-gold);
+}
+:root .studio-shell .gpt-composer {
+  background: #11160f;
+  border-color: #cfa75180;
+  border-radius: 12px;
+}
+:root .studio-shell .gpt-chat-list .selected {
+  background: #b2892920;
+  border-color: #ccaa5f70;
+  color: var(--studio-gold-bright);
+}
+:root .studio-shell .gpt-history {
+  padding-right: 14px;
+}
+:root .studio-shell .gpt-history small {
+  font-size: 11px;
+}
+:root .studio-shell .gpt-context .context-file {
+  display: flex;
+  gap: 8px;
+  padding: 10px 0;
+  font-size: 12px;
+  border-bottom: 1px solid #ffffff09;
+  overflow-wrap: anywhere;
+}
+:root .studio-shell .gpt-context p {
+  font-size: 13px;
+  color: var(--muted);
+  line-height: 1.6;
+}
+:root .studio-shell .nav-collapsed .brand span {
+  display: none;
+}
+:root .studio-shell .nav-collapsed .sidebar {
+  padding-left: 8px;
+  padding-right: 8px;
+}
+:root .studio-shell .nav-collapsed .brand {
+  margin-left: 4px;
+}
+:root .nav-collapsed.studio-shell {
+  grid-template-columns: 72px minmax(0, 1fr);
+}
+@media (min-width: 2100px) {
+  :root .studio-shell .cinematic-hero {
+    min-height: 400px;
+  }
+  :root .studio-shell .workspace-scene {
+    height: 500px;
+  }
+  :root .studio-shell .creative-project .project-visual {
+    height: 180px;
+  }
+  :root .studio-shell .creation-identity {
+    grid-template-columns: minmax(0, 1fr) 440px;
+  }
+  :root .studio-shell .creative-journey {
+    width: 440px;
+  }
+  :root .studio-shell .cinematic-hero,
+  :root .studio-shell .home-idea {
+    max-width: calc(100% - 475px);
+  }
+  :root .studio-shell .creative-actions {
+    width: calc(100% - 475px);
+  }
+}
+@media (max-width: 1500px) {
+  :root .studio-shell {
+    grid-template-columns: 190px minmax(0, 1fr);
+  }
+  :root .studio-shell .sidebar {
+    padding: 20px 10px 12px;
+  }
+  :root .studio-shell .brand {
+    font-size: 27px;
+  }
+  :root .studio-shell .sidebar .nav {
+    font-size: 13px;
+    min-height: 32px;
+    padding: 7px 10px;
+  }
+  :root .studio-shell .creation-identity {
+    grid-template-columns: minmax(0, 1fr) 310px;
+  }
+  :root .studio-shell .machine-status {
+    padding: 15px;
+  }
+  :root .studio-shell .gpt-studio {
+    grid-template-columns: 155px minmax(0, 1fr) 255px;
+    gap: 12px;
+  }
+  :root .studio-shell .gpt-context {
+    padding-left: 12px;
+  }
+  :root .studio-shell .gpt-conversation h1 {
+    font-size: 37px;
+  }
+  :root .studio-shell .site-content {
+    display: flex;
+    flex-direction: column;
+  }
+  :root .studio-shell .site-content > * {
+    width: 100%;
+  }
+  :root .studio-shell .site-content .site-map {
+    order: 0;
+  }
+  :root .studio-shell .site-content .website-preview {
+    order: 1;
+  }
+  :root .studio-shell .site-content .site-editor {
+    order: 2;
+  }
+  :root .studio-shell .creative-journey {
+    width: 310px;
+  }
+  :root .studio-shell .cinematic-hero,
+  :root .studio-shell .home-idea {
+    max-width: calc(100% - 335px);
+  }
+  :root .studio-shell .creative-actions {
+    width: calc(100% - 335px);
+  }
+  :root .studio-shell .workspace-scene {
+    right: 310px;
+  }
+  :root .studio-shell .creative-action {
+    padding: 12px;
+    min-height: 145px;
+  }
+  :root .studio-shell .creative-action strong {
+    font-size: 12px;
+  }
+  :root .studio-shell .creative-project-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+  :root .studio-shell .cinematic-copy h1 {
+    font-size: 72px;
+  }
+  :root .studio-shell .capability-art {
+    height: 110px;
+  }
+  :root .studio-shell .capability-copy {
+    padding: 12px;
+  }
+  :root .studio-shell .capability-copy strong {
+    font-size: 20px;
+  }
+}
+@media (max-width: 1150px) {
+  :root .studio-shell .creation-identity {
+    grid-template-columns: 1fr;
+  }
+  :root .studio-shell .creation-identity > .machine-status {
+    display: none;
+  }
+  :root .studio-shell .gpt-studio {
+    grid-template-columns: 160px minmax(0, 1fr);
+  }
+  :root .studio-shell .gpt-context {
+    grid-column: 1 / -1;
+    border: 1px solid var(--studio-border);
+    padding: 16px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+  }
+  :root .studio-shell .gpt-context .machine-status {
+    display: none;
+  }
+  :root .studio-shell .gpt-conversation {
+    min-height: 600px;
+  }
+  :root .studio-shell .visual-workbench,
+  :root .studio-shell.route-video .visual-workbench {
+    grid-template-columns: minmax(0, 1fr) 300px;
+  }
+  :root .studio-shell .creative-journey {
+    position: static;
+    width: auto;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin-top: 20px;
+  }
+  :root .studio-shell .creative-journey blockquote {
+    display: none;
+  }
+  :root .studio-shell .cinematic-hero,
+  :root .studio-shell .home-idea {
+    max-width: none;
+  }
+  :root .studio-shell .creative-actions {
+    width: 100%;
+  }
+  :root .studio-shell .workspace-scene {
+    right: 0;
+  }
+  :root .studio-shell .creative-project-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+  :root .studio-shell .capability-shelf {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  :root .studio-shell .settings-layout {
+    grid-template-columns: minmax(0, 1fr) 280px;
+  }
+  :root .studio-shell .tools-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 850px) {
+  :root .studio-shell main[data-studio-page] {
+    padding: 18px;
+  }
+  :root .studio-shell {
+    grid-template-columns: 72px minmax(0, 1fr);
+  }
+  :root .studio-shell .sidebar .brand span {
+    display: none;
+  }
+  :root .studio-shell .sidebar .brand {
+    margin: 0 0 20px;
+  }
+  :root .studio-shell .sidebar .nav {
+    font-size: 0;
+    justify-content: center;
+  }
+  :root .studio-shell .sidebar .nav svg {
+    width: 20px;
+    height: 20px;
+  }
+  :root .studio-shell .sidebar .nav-section,
+  :root .studio-shell .sidebar .local-engine {
+    display: none;
+  }
+  :root .studio-shell .topbar {
+    padding: 10px 16px;
+  }
+  :root .studio-shell .visual-workbench,
+  :root .studio-shell.route-video .visual-workbench,
+  :root .studio-shell .settings-layout,
+  :root .studio-shell .website-layout,
+  :root .studio-shell .delivery-layout {
+    grid-template-columns: 1fr;
+  }
+  :root .studio-shell .gpt-studio {
+    grid-template-columns: 1fr;
+  }
+  :root .studio-shell .gpt-history {
+    border: 0;
+  }
+  :root .studio-shell .gpt-chat-list {
+    max-height: 130px;
+  }
+  :root .studio-shell .gpt-conversation {
+    height: auto;
+    min-height: 640px;
+  }
+  :root .studio-shell .gpt-transcript {
+    max-height: 65vh;
+  }
+  :root .studio-shell .cinematic-copy h1 {
+    font-size: 64px;
+  }
+  :root .studio-shell .creative-project-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  :root .studio-shell .creative-actions {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 600px) {
+  :root .studio-shell {
+    display: block;
+  }
+  :root .studio-shell .sidebar {
+    background: #0b0e09;
+  }
+  :root .studio-shell .creative-journey {
+    grid-template-columns: 1fr;
+  }
+  :root .studio-shell .cinematic-copy h1 {
+    font-size: 53px;
+  }
+  :root .studio-shell .creative-project-grid,
+  :root .studio-shell .capability-shelf,
+  :root .studio-shell .tools-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  :root .studio-shell .gpt-context {
+    grid-template-columns: 1fr;
+  }
+  :root .studio-shell .home-idea {
+    padding: 12px;
+  }
+  :root .studio-shell .home-idea .studio-command input {
+    font-size: 16px;
+  }
+  :root .studio-shell .editorial-copy {
+    max-width: 100%;
+  }
+  :root .studio-shell .editorial-hero h1 {
+    font-size: 39px;
+  }
+  :root .studio-shell .machine-art {
+    opacity: 0.5;
+  }
+  :root .studio-shell .settings-tabs {
+    flex-wrap: wrap;
+  }
+  :root .studio-shell .settings-tabs button {
+    min-width: 150px;
+  }
+  :root .studio-shell .topbar .project-title {
+    max-width: 100%;
+  }
+  :root .studio-shell .cinematic-hero {
+    min-height: 300px;
+  }
+  :root .studio-shell .website-preview iframe {
+    min-height: 480px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *:before,
+  *:after {
+    animation: none !important;
+    transition: none !important;
+    scroll-behavior: auto !important;
+  }
+}
+/* Refinement pass one: keep the machine column clear of recent work. */
+:root .studio-shell .creative-home .creative-journey {
+  top: 0;
+  padding: 0;
+  background: transparent;
+  border: 0;
+  min-height: 0;
+  box-shadow: none;
+}
+:root .studio-shell .creative-home .creative-journey blockquote {
+  padding: 18px 10px;
+  margin: 14px 0;
+  font-size: 24px;
+}
+:root .studio-shell .creative-home .home-quick {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  padding: 12px;
+  gap: 5px;
+}
+:root .studio-shell .home-quick h3 {
+  grid-column: 1/-1;
+}
+:root .studio-shell .creative-home .home-quick button {
+  font-size: 11px;
+  padding: 5px;
+  flex-wrap: wrap;
+}
+:root .studio-shell .creative-home .home-quick button svg:last-child {
+  display: none;
+}
+:root .studio-shell .creative-home .creative-project-grid {
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+}
+:root .studio-shell .creative-home .creative-actions {
+  margin-bottom: 28px;
+}
+:root .studio-shell .creative-home .creative-action {
+  background:
+    linear-gradient(110deg, #11140ed0, #0b0d08a0),
+    url("./art/local-machine-gold.svg") 75% 50% / auto 220px;
+}
+:root .studio-shell .creative-action.page > svg,
+:root .studio-shell .creative-action.write > svg,
+:root .studio-shell .creative-action.video > svg {
+  color: var(--studio-gold);
+}
+:root .studio-shell .creative-home .creative-action > svg:last-child {
+  display: block;
+}
+:root .studio-shell .creative-home .creative-action .action-number {
+  display: block;
+}
+:root .studio-shell .creative-home .creative-project-grid .project-visual {
+  height: 132px;
+}
+:root .studio-shell .creative-home .studio-command form {
+  width: 100%;
+}
+:root .studio-shell .creative-home .studio-command input {
+  width: 100%;
+  flex: 1;
+}
+:root .studio-shell .creative-home .studio-command {
+  width: 100%;
+}
+:root .studio-shell .creation-canvas {
+  min-height: 0;
+  border: 1px solid #b4904f66;
+  background: #060806;
+  border-radius: 10px;
+}
+:root .studio-shell .creation-canvas > img,
+:root .studio-shell .creation-canvas > video {
+  width: 100%;
+  height: 440px;
+  max-height: 55vh;
+  object-fit: contain;
+}
+:root .studio-shell.route-image .results,
+:root .studio-shell.route-video .results {
+  display: flex;
+  gap: 12px;
+  overflow: auto;
+}
+:root .studio-shell .results > article {
+  min-width: 160px;
+  max-width: 200px;
+}
+:root .studio-shell .gpt-conversation h1 {
+  color: var(--studio-text);
+}
+:root .studio-shell .sidebar {
+  border-radius: 0;
+  background-color: #090b09;
+}
+:root .studio-shell .sidebar .brand {
+  font: 31px/1 var(--studio-display);
+  align-items: flex-start;
+}
+:root .studio-shell .sidebar .brand span {
+  font: inherit;
+}
+:root .studio-shell .topbar {
+  background: #090b09;
+}
+:root .studio-shell .image-form,
+:root .studio-shell .video-layout,
+:root .studio-shell .hardware {
+  background: #10130f;
+}
+:root .studio-shell .editorial-hero.compact h1 em {
+  display: block;
+}
+:root .studio-shell .creative-home .cinematic-copy h1 {
+  font-weight: 500;
+}
+:root .studio-shell .creative-home .cinematic-copy p {
+  font-size: 18px;
+}
+:root .studio-shell .creative-home .creative-journey .machine-status {
+  padding: 16px;
+}
+:root .studio-shell .creative-home .creative-journey .machine-meters {
+  padding-top: 12px;
+}
+:root .studio-shell .creative-home .creative-journey .machine-details {
+  margin-top: 12px;
+}
+:root .studio-shell .creative-home .creative-journey .meter-ring {
+  width: 55px;
+  height: 55px;
+}
+:root .studio-shell .creative-home .creative-journey .machine-thermal > strong {
+  height: 55px;
+}
+:root .studio-shell .creative-home .creative-journey h2 {
+  font-size: 22px;
+}
+@media (max-width: 1500px) {
+  :root .studio-shell .creative-home .creative-project-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+  :root .studio-shell .creative-home .creative-journey blockquote {
+    font-size: 21px;
+  }
+  :root .studio-shell .creative-home .creative-journey .machine-status {
+    padding: 12px;
+  }
+}
+@media (max-width: 1150px) {
+  :root .studio-shell .creative-home .creative-journey {
+    position: static;
+    display: grid;
+    width: auto;
+    grid-template-columns: 1fr 1fr;
+  }
+  :root .studio-shell .creative-home .creative-project-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+@media (max-width: 600px) {
+  :root .studio-shell .creative-home .creative-journey {
+    display: block;
+  }
+  :root .studio-shell .creative-home .creative-project-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  :root .studio-shell .creation-canvas > img,
+  :root .studio-shell .creation-canvas > video {
+    height: 320px;
+  }
+}
+/* Refinement pass two: quiet navigation and align the full-width project shelf. */
+:root .studio-shell .sidebar .nav {
+  background: transparent;
+}
+:root .studio-shell .sidebar .nav.active {
+  background: linear-gradient(90deg, #ad82372b, #ad823705);
+}
+:root .studio-shell .creative-home .creative-journey {
+  margin-top: 0;
+}
+:root .studio-shell .creative-home .creative-actions {
+  margin-bottom: 46px;
+}
+:root .studio-shell .creative-home .home-quick {
+  background: #0c0f0b;
+}
+:root .studio-shell .creative-home .cinematic-copy h1 {
+  font-weight: 600;
+  font-size: clamp(56px, 5vw, 92px);
+}
+:root .studio-shell .creation-identity .machine-status {
+  padding: 14px;
+}
+:root .studio-shell .creation-identity .machine-meters {
+  padding-top: 10px;
+}
+:root .studio-shell .creation-identity {
+  margin-bottom: 16px;
+}
+:root .studio-shell .creation-identity .editorial-hero {
+  min-height: 240px;
+}
+:root .studio-shell .creation-identity .editorial-hero h1 {
+  font-weight: 600;
+}
+:root .studio-shell .style-suggestions {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+:root .studio-shell .style-suggestions button {
+  height: 75px;
+  align-items: flex-end;
+  padding: 9px;
+  background:
+    linear-gradient(0deg, #070b07, #11160c66),
+    url("./art/alpine-studio.png") center/cover;
+  font-size: 11px;
+  justify-content: flex-start;
+}
+:root .studio-shell .style-suggestions button:nth-child(2) {
+  background-blend-mode: luminosity;
+}
+:root .studio-shell .style-suggestions button:nth-child(3) {
+  background-position: 80% 80%;
+}
+:root .studio-shell .style-suggestions button:nth-child(4) {
+  background-position: 30% 50%;
+  background-color: #514222;
+}
+:root .studio-shell .style-suggestions .helper {
+  grid-column: 1/-1;
+}
+:root .studio-shell .creation-canvas > video {
+  height: 500px;
+}
+:root .studio-shell .tools-grid .tool-identity {
+  background: none;
+}
+@media (max-width: 1500px) {
+  :root .studio-shell .creative-home .creative-actions {
+    margin-bottom: 65px;
+  }
+  :root .studio-shell .creative-home .cinematic-copy h1 {
+    font-size: 65px;
+  }
+}
+@media (max-width: 1150px) {
+  :root .studio-shell .creative-home .creative-actions {
+    margin-bottom: 24px;
+  }
+}
+/* Home uses shared grid rows: the project shelf always starts below both columns. */
+:root .studio-shell .creative-home {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 370px;
+  column-gap: 28px;
+  row-gap: 0;
+}
+:root .studio-shell .creative-home .cinematic-hero {
+  grid-column: 1;
+  grid-row: 1;
+  max-width: none;
+  min-height: 325px;
+}
+:root .studio-shell .creative-home .home-idea {
+  grid-column: 1;
+  grid-row: 2;
+  max-width: none;
+}
+:root .studio-shell .creative-home .home-content,
+:root .studio-shell .creative-home .recent-work {
+  display: contents;
+}
+:root .studio-shell .creative-home .recent-work > * {
+  grid-column: 1/-1;
+}
+:root .studio-shell .creative-home .creative-actions {
+  grid-column: 1;
+  grid-row: 3;
+  width: 100%;
+  margin: 0 0 24px;
+}
+:root .studio-shell .creative-home .creative-journey {
+  grid-column: 2;
+  grid-row: 1 / span 3;
+  position: static;
+  width: auto;
+  margin: 0 0 24px;
+  align-self: start;
+}
+:root .studio-shell .creative-home .section-heading {
+  margin: 0 0 14px;
+}
+:root .studio-shell .creative-home .creative-journey .section-heading {
+  margin: 0;
+}
+:root .studio-shell .creative-home .creative-project-grid {
+  margin-top: 0;
+}
+@media (min-width: 2100px) {
+  :root .studio-shell .creative-home {
+    grid-template-columns: minmax(0, 1fr) 440px;
+  }
+}
+@media (max-width: 1500px) {
+  :root .studio-shell .creative-home {
+    grid-template-columns: minmax(0, 1fr) 310px;
+    column-gap: 20px;
+  }
+}
+@media (max-width: 1150px) {
+  :root .studio-shell .creative-home {
+    display: block;
+  }
+  :root .studio-shell .creative-home .creative-journey {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    margin: 20px 0;
+  }
+  :root .studio-shell .creative-home .creative-actions {
+    margin: 0 0 24px;
+  }
+}
+@media (max-width: 600px) {
+  :root .studio-shell .creative-home .creative-journey {
+    display: block;
+  }
+}
+:root .studio-shell .command-shortcut {
+  white-space: nowrap;
+  font: 10px system-ui;
+  color: #bdb9a9;
+  padding: 4px 6px;
+  border: 1px solid #ffffff14;
+  border-radius: 4px;
+}
+:root .studio-shell .creation-identity .machine-status > p {
+  margin: 6px 0 9px;
+}
+:root .studio-shell .creation-identity .machine-device {
+  padding: 9px;
+}
+:root .studio-shell .creation-identity .meter-ring {
+  height: 52px;
+  width: 52px;
+  margin-bottom: 5px;
+}
+:root .studio-shell .creation-identity .machine-thermal > strong {
+  height: 52px;
+  margin-bottom: 5px;
+}
+:root .studio-shell .creation-identity .editorial-hero {
+  min-height: 220px;
+}
+/* Dense, readable preference rows keep the model list within the workstation. */
+:root .studio-shell .settings-tabs {
+  display: flex;
+  width: 100%;
+  max-width: none;
+}
+:root .studio-shell .default-model {
+  padding: 18px 0;
+  grid-template-columns: 38px minmax(0, 1fr);
+  gap: 14px;
+}
+:root .studio-shell .default-model > div:last-child {
+  display: grid;
+  grid-template-columns: 220px minmax(0, 1fr);
+  column-gap: 20px;
+}
+:root .studio-shell .default-model h3 {
+  grid-column: 1;
+  grid-row: 1;
+  margin: 2px 0;
+  font-size: 15px;
+}
+:root .studio-shell .default-model > div > p {
+  grid-column: 1;
+  grid-row: 2;
+  font-size: 12px;
+  margin: 6px 0;
+}
+:root .studio-shell .default-model .model-choice {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  min-width: 0;
+}
+:root .studio-shell .default-model .model-choice label {
+  font-size: 11px;
+}
+:root .studio-shell .default-model .model-note {
+  font-size: 11px;
+  line-height: 1.5;
+  margin: 6px 0 0;
+}
+:root .studio-shell .settings-aside > .machine-status {
+  margin-bottom: 16px;
+}
+:root .studio-shell .settings-aside .machine-status h2 {
+  font-size: 23px;
+}
+:root .studio-shell .settings-section {
+  padding: 22px;
+}
+@media (max-width: 1366px) {
+  :root .studio-shell .default-model > div:last-child {
+    grid-template-columns: 150px minmax(0, 1fr);
+    column-gap: 12px;
+  }
+}
+@media (max-width: 850px) {
+  :root .studio-shell .default-model > div:last-child {
+    display: block;
+  }
+}
+:root .studio-shell .creative-home .creative-action.image,
+:root .studio-shell .creative-home .creative-action.video,
+:root .studio-shell .creative-home .creative-action.page {
+  background:
+    linear-gradient(90deg, #090c09e8 15%, #090c0955),
+    var(--creative-thumbnail, url("./art/local-machine-gold.svg")) center/cover;
+}
+:root .studio-shell .capability-art {
+  position: relative;
+  overflow: hidden;
+  background:
+    radial-gradient(ellipse at center, #b28e3433, transparent 70%), #0a0d09;
+}
+:root .studio-shell .capability-art svg {
+  position: relative;
+  z-index: 1;
+}
+:root .studio-shell .capability-image .capability-art:before {
+  content: "";
+  position: absolute;
+  width: 145px;
+  height: 85px;
+  transform: rotate(-8deg);
+  background: linear-gradient(145deg, #343a2c, #171b12);
+  border: 1px solid #b18c4b;
+  box-shadow: 12px 12px 0 #25291c;
+}
+:root .studio-shell .capability-video .capability-art:before {
+  content: "";
+  position: absolute;
+  width: 110px;
+  height: 110px;
+  border: 1px solid #d7af60;
+  border-radius: 50%;
+  box-shadow:
+    0 0 0 8px #caa25b0c,
+    0 0 35px #ca9f3930;
+}
+:root .studio-shell .capability-write .capability-art:before {
+  content: "";
+  position: absolute;
+  width: 140px;
+  height: 110px;
+  transform: rotate(12deg);
+  background: repeating-linear-gradient(0deg, #c8b88d 0 1px, #e3d7b8 1px 14px);
+  box-shadow: 9px 7px 0 #8b7d5c;
+}
+:root .studio-shell .capability-write .capability-art svg {
+  color: #665023;
+}
+:root .studio-shell .capability-page .capability-art:before {
+  content: "";
+  position: absolute;
+  width: 180px;
+  height: 100px;
+  border: 1px solid #bba064;
+  border-radius: 6px;
+  background: linear-gradient(0deg, #0c100b 72%, #2b3024 72% 85%, #11170d 85%);
+  box-shadow: 12px 12px 20px #0006;
+}
+:root .studio-shell .capability-chat .capability-art:before {
+  content: "";
+  position: absolute;
+  width: 100px;
+  height: 100px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #5a5031, #11160d 65%);
+  box-shadow:
+    inset -2px -2px 0 #c6a25e,
+    0 0 25px #c2a95822;
+}
+/* The website stays central while longer property lists scroll independently. */
+:root .studio-shell.route-page .editorial-hero.compact {
+  min-height: 150px;
+}
+:root .studio-shell.route-page .editorial-hero.compact h1 {
+  font-size: 52px;
+  max-width: 850px;
+}
+:root .studio-shell.route-page .editorial-hero.compact h1 em {
+  display: inline;
+}
+@media (min-width: 1501px) {
+  :root .studio-shell .site-content .site-editor {
+    max-height: 480px;
+    overflow: auto;
+    scrollbar-color: #9c7941 #11150e;
+  }
+}
+@media (max-width: 600px) {
+  :root .studio-shell.route-page .editorial-hero.compact h1 {
+    font-size: 38px;
+  }
+}
+:root .studio-shell.route-write .document input.document-title {
+  background: transparent;
+  color: #262a21;
+  border: 0;
+  box-shadow: none;
+}
+:root .studio-shell.route-write .document .document-title::placeholder,
+:root .studio-shell.route-write .document .document-editor::placeholder {
+  color: #6b6e63;
+  opacity: 1;
+}
+:root .studio-shell.route-write .document .document-footer {
+  color: #64685d;
+}
+/* One visible hardware summary per workspace. Compact tools fall back to the rail. */
+@media (min-width: 1151px) {
+  :root
+    .studio-shell:is(.route-image, .route-video, .route-chat, .route-tools)
+    .sidebar
+    .hardware {
+    display: none;
+  }
+}
+:root .studio-shell.route-settings .settings-aside .detected-hardware {
+  display: none;
+}
+
+/* Company attribution stays within the navigation rail at every window size. */
+.studio-shell .product-attribution {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 36px;
+  margin-top: 8px;
+  padding: 7px 12px;
+  border-radius: 5px;
+  color: var(--studio-text-muted);
+  font-size: 12px;
+  line-height: 1.5;
+  text-decoration: none;
+  white-space: nowrap;
+  transition:
+    color 180ms ease,
+    background-color 180ms ease;
+}
+.studio-shell .product-attribution strong {
+  color: var(--studio-gold);
+  font-weight: 500;
+}
+.studio-shell .product-attribution svg {
+  flex-shrink: 0;
+  color: var(--studio-gold);
+}
+.studio-shell .product-attribution:hover {
+  color: var(--studio-text);
+  background: #b18e3c14;
+}
+.studio-shell .product-attribution:focus-visible {
+  outline: 2px solid var(--studio-gold);
+  outline-offset: 2px;
+}
+.studio-shell.nav-collapsed .product-attribution {
+  justify-content: center;
+  padding-inline: 4px;
+}
+.studio-shell.nav-collapsed .product-attribution span {
+  display: none;
+}
+@media (max-width: 900px) {
+  .studio-shell .product-attribution {
+    justify-content: center;
+    padding-inline: 4px;
+  }
+  .studio-shell .product-attribution span {
+    display: none;
+  }
+}

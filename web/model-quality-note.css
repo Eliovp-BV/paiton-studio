@@ -1,0 +1,19 @@
+.model-quality-note {
+  margin: 10px 0 0;
+  padding: 10px 12px;
+  border-left: 2px solid var(--accent, #f9e900);
+  border-radius: 0 6px 6px 0;
+  background: #242319;
+  color: #e5e5df;
+  font-size: 0.78rem;
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+}
+
+.model-quality-note strong {
+  display: block;
+  margin-bottom: 3px;
+  color: #f2e955;
+  font-size: 0.72rem;
+  font-weight: 600;
+}

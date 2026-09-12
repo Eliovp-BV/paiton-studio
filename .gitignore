@@ -1,0 +1,24 @@
+.venv/
+node_modules/
+dist/
+.data/
+.local/
+config.local.json
+__pycache__/
+.pytest_cache/
+*.log
+*.sqlite*
+*.mp4
+*.png
+*.jpg
+*.safetensors
+*.so
+
+!web/art/alpine-studio.png
+
+# Private research and investigation notes belong in ignored local storage.
+docs/
+research/
+
+# Local development instructions; not part of the consumer source package.
+/AGENTS.md

@@ -1,0 +1,132 @@
+{
+  "1": {
+    "class_type": "PaitonWanBaseLoader",
+    "inputs": {
+      "engine": "stock"
+    }
+  },
+  "2": {
+    "class_type": "PaitonWanBaseSettings",
+    "inputs": {
+      "duration": "2 seconds (49 frames)",
+      "resolution": "480 class (832 x 480)",
+      "orientation": "Landscape"
+    }
+  },
+  "3": {
+    "class_type": "PaitonWanTextEncode",
+    "inputs": {
+      "text": "A small red fox walks across a sunlit woodland clearing, pauses and turns its head toward the camera. Detailed natural fur, coherent anatomy, smooth continuous motion. The camera slowly tracks right.",
+      "clip": [
+        "1",
+        1
+      ]
+    }
+  },
+  "4": {
+    "class_type": "PaitonWanTextEncode",
+    "inputs": {
+      "text": "Overexposed, static, blurry details, subtitles, painting, still image, gray cast, worst quality, low quality, JPEG artifacts, deformed, disfigured, extra limbs, fused fingers, cluttered background, three legs, backwards walking.",
+      "clip": [
+        "1",
+        1
+      ]
+    }
+  },
+  "5": {
+    "class_type": "PaitonWanInputImage",
+    "inputs": {
+      "image": "(none)"
+    }
+  },
+  "6": {
+    "class_type": "Wan22ImageToVideoLatent",
+    "inputs": {
+      "batch_size": 1,
+      "vae": [
+        "1",
+        2
+      ],
+      "width": [
+        "2",
+        0
+      ],
+      "height": [
+        "2",
+        1
+      ],
+      "length": [
+        "2",
+        2
+      ],
+      "start_image": [
+        "5",
+        0
+      ]
+    }
+  },
+  "7": {
+    "class_type": "KSampler",
+    "inputs": {
+      "seed": 1201,
+      "steps": 20,
+      "cfg": 5,
+      "sampler_name": "uni_pc",
+      "scheduler": "simple",
+      "denoise": 1,
+      "model": [
+        "1",
+        0
+      ],
+      "positive": [
+        "3",
+        0
+      ],
+      "negative": [
+        "4",
+        0
+      ],
+      "latent_image": [
+        "6",
+        0
+      ]
+    }
+  },
+  "8": {
+    "class_type": "VAEDecode",
+    "inputs": {
+      "samples": [
+        "7",
+        0
+      ],
+      "vae": [
+        "1",
+        2
+      ]
+    }
+  },
+  "9": {
+    "class_type": "CreateVideo",
+    "inputs": {
+      "fps": 24,
+      "images": [
+        "8",
+        0
+      ]
+    }
+  },
+  "10": {
+    "class_type": "SaveVideo",
+    "inputs": {
+      "filename_prefix": "wan/base",
+      "format": "mp4",
+      "format.codec": "h264",
+      "format.codec.encoding": "re-encode",
+      "format.codec.encoding.crf": 18,
+      "video": [
+        "9",
+        0
+      ]
+    }
+  }
+}

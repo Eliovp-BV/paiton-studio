@@ -1,0 +1,35 @@
+.model-memory-settings .memory-ready {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--studio-border, #ffffff18);
+  margin-bottom: 16px;
+}
+.model-memory-settings .memory-ready .status-dot {
+  margin-top: 5px;
+  flex-shrink: 0;
+}
+.model-memory-settings .memory-ready p {
+  margin: 5px 0 0;
+}
+.model-memory-settings .memory-switch-note {
+  display: flex;
+  gap: 12px;
+  margin: 20px 0;
+}
+.model-memory-settings .memory-switch-note svg {
+  flex-shrink: 0;
+  margin-top: 3px;
+  color: var(--studio-lime, #edc66c);
+}
+.model-memory-settings .memory-switch-note p {
+  margin: 0;
+  line-height: 1.6;
+}
+.model-memory-settings select {
+  max-width: 100%;
+}
+.model-memory-settings details p {
+  line-height: 1.6;
+}

@@ -1,0 +1,18 @@
+PaitonMail includes code adapted from Gigamail.
+Copyright (C) 2026 Adecubed
+Upstream: https://github.com/adecubed/gigamail
+Revision: d65ba498cfa6cca2c5871500369f2c1b80a52814
+License: GNU Affero General Public License, version 3 or later.
+
+Modified by Paiton, 2026-09-10:
+- Selected MIME decoding, recent-message search and connection cleanup helpers
+  from src/ade_mail_agent/core/imap_client.py; plaintext preference, bounded MIME
+  traversal, honest search failures and a verified-TLS connection adapter.
+- Adapted src/ade_mail_agent/consent.py; removed approval environment overrides
+  and supplied PaitonMail error messages. Unsupported hosts still fail closed.
+- Studio project persistence, local drafting queue, UI, MCP adapter, immutable
+  delivery review and source download integration are Paiton additions.
+
+This software comes with no warranty. You may redistribute and modify covered
+code under the accompanying AGPL-3.0-or-later license. Paiton branding does not
+remove the upstream copyright or license. No alternative license has been granted.
