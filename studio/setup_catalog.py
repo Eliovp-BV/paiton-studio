@@ -6,6 +6,7 @@ public sources; its artifact image alone is not a working video runtime.
 """
 import json
 from pathlib import Path
+from .qwen_mxfp4 import IMAGE as MXFP4_IMAGE, DOWNLOAD_BYTES as MXFP4_BYTES, SOURCE_REVISION as MXFP4_SOURCE
 MINICPM_IMAGE=json.loads((Path(__file__).parent/'contracts/minicpm5-image.json').read_text())
 
 H3 = {'source_repository': 'Eliovp-BV/paiton-vllm-plugin',
@@ -119,6 +120,14 @@ CODER = {
 }
 
 PACKAGES = {
+    'qwen38-mxfp4': dict(id='qwen38-mxfp4', title='Recommended writing, websites & chat', model='Qwen3.8 27B MXFP4 + DFlash2 · Paiton',
+        source_url='https://github.com/Eliovp-BV/paiton-vllm-plugin/tree/' + MXFP4_SOURCE + '/models/Qwen3.8-MXFP4-DFlash2',
+        license='Component-specific runtime, target and draft model terms; see package notices',
+        license_url='https://github.com/Eliovp-BV/paiton-vllm-plugin/blob/' + MXFP4_SOURCE + '/models/Qwen3.8-MXFP4-DFlash2/THIRD_PARTY_NOTICES.md',
+        download_bytes=MXFP4_BYTES, required_disk_bytes=60_000_000_000,
+        image=MXFP4_IMAGE, image_key='qwen38_mxfp4_image', can_install=True, installer='qwen38-mxfp4',
+        steps=['Prepare the pinned local runtime', 'Download and verify the target model', 'Download and verify the DFlash2 draft', 'Connect both local checkpoints'],
+        message='Recommended for writing, websites and chat. About 21.9 GB of target and draft weights plus runtime layers. Downloads resume after interruption; generation stays local.'),
     'minicpm5-2b': dict(id='minicpm5-2b', title='Small local chat & code', model='MiniCPM5-2B W4A16 · Paiton',
         source_url='https://huggingface.co/openbmb/MiniCPM5-2B-GPTQ/tree/6c1ee6fa521aa53f47cfb32696e6d8ef5b0db805',
         license='Apache-2.0 model and plugin; runtime notices apply',

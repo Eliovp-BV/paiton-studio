@@ -53,16 +53,18 @@ export default function ModelMemorySettings({
         </select>
       </label>
       <p className="helper">
-        Applies to Qwen3.8 writing and website planning, GPT-OSS, and MiniCPM after their last activity. An open GPT
-        workspace extends retention. Keeping a model ready uses GPU memory;
-        another queued tool can still take its turn.
+        Applies to Qwen3.8 MXFP4 + DFlash2, Qronos writing and website planning,
+        GPT-OSS, and MiniCPM after their last activity. An open GPT workspace
+        extends retention. Keeping a model ready uses GPU memory; another queued
+        tool can still take its turn.
       </p>
       <div className="memory-switch-note">
         <HardDrive size={19} aria-hidden="true" />
         <p>
           Model files and supported runtime caches stay on disk. Switching tools
           may release the current model, so returning can require another long
-          load. Image and Video currently load for each request. Supported text models can stay ready between requests.
+          load. Image and Video currently load for each request. Supported text
+          models can stay ready between requests.
         </p>
       </div>
       <details>

@@ -34,7 +34,7 @@ def test_policy_does_not_load_and_only_accepts_bounded_minutes(clock_runtime):
         assert status['retained_model'] is None
         assert runtime._chat_active_until==0
         assert status['ram_resume_supported'] is False
-        assert set(status['retention_package_ids'])=={'gptoss','minicpm5-2b','qwen38'}
+        assert set(status['retention_package_ids'])=={'gptoss','minicpm5-2b','qwen38','qwen38-mxfp4'}
     for invalid in (0,-1,1,3,60,True,2.0,'5',None):
         with pytest.raises(ValueError):runtime.configure_memory_policy(invalid)
     assert runtime.warm_seconds==120

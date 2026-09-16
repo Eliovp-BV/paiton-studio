@@ -14,8 +14,8 @@ from studio.telemetry import gpu_status
 def test_roles_only_expose_compatible_model_profiles():
     assert {p['package'] for p in compatible_profiles('video')} == {'h3','wan'}
     assert {p['package'] for p in compatible_profiles('image')} == {'flux'}
-    assert {p['package'] for p in compatible_profiles('write')} == {'qwen38', 'qwen-coder','gptoss'}
-    assert {p['package'] for p in compatible_profiles('website')} == {'qwen38', 'qwen-coder'}
+    assert {p['package'] for p in compatible_profiles('write')} == {'qwen38-mxfp4', 'qwen38', 'qwen-coder','gptoss'}
+    assert {p['package'] for p in compatible_profiles('website')} == {'qwen38-mxfp4', 'qwen38', 'qwen-coder'}
     assert {p['id'] for p in compatible_profiles('write')}.isdisjoint(p['id'] for p in compatible_profiles('website'))
     with pytest.raises(ValueError): profile('qwen38-writing', 'video')
     with pytest.raises(ValueError): profile('qwen38-writing', 'write', 'website')

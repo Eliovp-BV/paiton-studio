@@ -1230,7 +1230,8 @@ function App() {
               gpu={status.gpu}
               key={project.id}
               initialIntent={chatIntent}
-              defaultProfile={settings.defaults?.chat || "gptoss-chat"}
+              defaultProfile={settings.defaults?.chat || "auto"}
+              defaultCodeProfile={settings.defaults?.code || "auto"}
               project={project}
               api={api}
               tools={tools}

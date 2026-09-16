@@ -75,6 +75,12 @@ class Runtime:
 
     def chat_source(self, package, revision):
         contract=CHAT_PACKAGES[package]
+        if package=='qwen38-mxfp4':
+            from .qwen_mxfp4 import sources
+            # The stock image has no passwd entry for the host UID. vLLM's
+            # framework imports call getpass.getuser even with cache paths set.
+            # Keep the host UID and give it a private writable cache home.
+            return sources(self.config)[0], {'USER':'paiton','LOGNAME':'paiton','HOME':'/models/cache'}
         if package=='minicpm5-2b':
             return [(self.config_path('minicpm5_hub_dir'),'/models/cache/huggingface/hub')],{}
         if package=='gptoss':
@@ -118,7 +124,12 @@ class Runtime:
         inspected=self.command(['image','inspect',image]) if image else None
         if inspected is None or inspected.returncode: raise RuntimeFailure('The local runtime image is not installed. Open Creation tools.')
         if shutil.disk_usage(self.store.root).free<2*1024**3: raise RuntimeFailure('Less than 2 GB of free disk remains. Free space before creating media.')
-        if package in ('minicpm5-2b','gptoss','wan','fastwan'):
+        if package=='qwen38-mxfp4':
+            from .qwen_mxfp4 import preflight
+            try: preflight(self,image,inspected.stdout)
+            except (ValueError,OSError,KeyError) as error:
+                raise RuntimeFailure(str(error) if isinstance(error,ValueError) else 'Qwen MXFP4 files could not be verified. Open Creation tools to repair setup.') from error
+        elif package in ('minicpm5-2b','gptoss','wan','fastwan'):
             from .release_adapters import preflight
             try: preflight(self,selected,inspected.stdout)
             except (ValueError,OSError) as error: raise RuntimeFailure(str(error) if isinstance(error,ValueError) else 'Model files are missing. Open Settings → Set up creation tools.') from error
@@ -429,7 +440,11 @@ class Runtime:
                 self.store.status(job['id'],'loading','Reusing the ready local text model.',container=container)
             else:
                 self.drop_warm()
-                container,_=self.start(job,image,['/studio/gptoss_server.py',*contract['args']] if package=='gptoss' else contract['args'],mounts=mounts,env=env,entrypoint='python3' if package=='gptoss' else None)
+                args=contract['args']
+                if package=='qwen38-mxfp4':
+                    from .qwen_mxfp4 import sources
+                    args=sources(self.config)[1]
+                container,_=self.start(job,image,['/studio/gptoss_server.py',*args] if package=='gptoss' else args,mounts=mounts,env=env,entrypoint='python3' if package=='gptoss' else None)
                 self.command(['start',container])
             self.wait_ready(job,container,contract['port'],'/health')
             # All current supported text packages expose vLLM's tokenizer API.

@@ -61,7 +61,7 @@ def test_page_replacement_preserves_every_unrelated_output_and_survives_restart(
     assert run['job_details'][0]['task'] == 'write'
     job = work.store.job(run['jobs'][0])
     assert job['request']['purpose'] == 'website-page-copy'
-    assert job['request']['profile']['id'] == 'qwen38-website'
+    assert job['request']['profile']['id'] == 'qwen38-mxfp4-website'
     complete(work, run)
     restarted = Websites(work.store, work.runtime, work.worker)
     restarted.tick()

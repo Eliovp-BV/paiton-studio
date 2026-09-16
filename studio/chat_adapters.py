@@ -5,6 +5,12 @@ all model inputs are read-only. No arbitrary executable or remote endpoint is
 accepted from a browser request.
 """
 CHAT_PACKAGES = {
+    'qwen38-mxfp4': {
+        'image_key': 'qwen38_mxfp4_image', 'port': 8000, 'served_model': 'Qwen3.8-27B-Quark-AWQ-MXFP4',
+        'args': ['--offline', '--target', '/models/target', '--draft', '/models/draft'],
+        'chat_template_kwargs': {'enable_thinking': False}, 'chat_temperature': 0.0,
+        'keep_warm': True, 'retain_for_writing': True, 'chat_presence': True,
+    },
     'minicpm5-2b': {
         'image_key': 'minicpm5_image', 'port': 8036, 'served_model': 'minicpm5-2b',
         'args': ['--offline'], 'repository': 'models--openbmb--MiniCPM5-2B-GPTQ',

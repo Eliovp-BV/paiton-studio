@@ -41,7 +41,7 @@ def complete(work, run, position, content, kind='text'):
 def test_website_durable_stages_apply_and_offline_links(workflow):
     work, project = workflow
     run = work.generate(project, WebsiteInput(brief='Create a fictional forest website', page_count=2, artwork_count=2))
-    assert work.store.job(run['jobs'][0])['request']['profile']['package'] == 'qwen38'
+    assert work.store.job(run['jobs'][0])['request']['profile']['package'] == 'qwen38-mxfp4'
     assert work.store.job(run['jobs'][0])['request']['messages'][0]['role'] == 'system'
     complete(work, run, 0, json.dumps(plan()).encode())
     work.tick()

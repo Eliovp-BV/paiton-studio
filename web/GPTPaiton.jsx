@@ -12,7 +12,7 @@ import {
   Copy,
   Sparkles,
 } from "lucide-react";
-import { ModelChoice, taskProfiles } from "./WorkspaceExtras";
+import { ModelChoice, taskProfiles, selectedProfile } from "./WorkspaceExtras";
 import { stageForJob, formatElapsed, studioNow } from "./creationFeedback";
 import "./gptpaiton.css";
 import { MachineStatus } from "./StudioIdentity";
@@ -92,7 +92,8 @@ export default function GPTPaiton({
   report,
   onSetup,
   initialIntent,
-  defaultProfile = "gptoss-chat",
+  defaultProfile = "auto",
+  defaultCodeProfile = "auto",
 }) {
   useEffect(() => {
     if (initialIntent?.text) setPrompt(initialIntent.text);
@@ -108,6 +109,11 @@ export default function GPTPaiton({
     [files, setFiles] = useState([]),
     [sending, setSending] = useState(false),
     [uploading, setUploading] = useState(false);
+  const replyRole = mode === "code" ? "code" : "chat";
+  const replyDefault = mode === "code" ? defaultCodeProfile : defaultProfile;
+  const replyProfile = selectedProfile(tools, replyRole, profile, replyDefault);
+  const adjustableReasoning =
+    (replyProfile?.package.reasoning_efforts || []).length > 0;
   const selected = useRef(null),
     alive = useRef(true),
     upload = useRef(null),
@@ -590,18 +596,21 @@ export default function GPTPaiton({
             </select>
             <select
               aria-label="Reasoning effort"
-              value={effort}
-              disabled={
-                mode === "image" ||
-                (profile === "auto" ? defaultProfile : profile) ===
-                  "minicpm5-chat"
+              value={adjustableReasoning ? effort : "low"}
+              disabled={mode === "image" || !adjustableReasoning}
+              title={
+                adjustableReasoning
+                  ? "Choose how much reasoning to use"
+                  : "This model uses direct answers with extended thinking off"
               }
               onChange={(e) => {
                 setEffort(e.target.value);
                 nonce.current = null;
               }}
             >
-              <option value="low">Quick reasoning</option>
+              <option value="low">
+                {adjustableReasoning ? "Quick reasoning" : "Direct answers"}
+              </option>
               <option value="medium">Balanced reasoning</option>
               <option value="high">Deeper reasoning</option>
             </select>
@@ -635,7 +644,7 @@ export default function GPTPaiton({
                 setProfile(value);
                 nonce.current = null;
               }}
-              defaultId={defaultProfile}
+              defaultId={replyDefault}
               label="Conversation model"
               details
             />
@@ -688,6 +697,7 @@ export default function GPTPaiton({
           <div className="gpt-model-mode">
             <div className="reply-speed" aria-label="Reply style">
               {[
+                ["qwen38-mxfp4-chat", "Recommended"],
                 ["minicpm5-chat", "Quick replies"],
                 ["gptoss-chat", "Deeper work"],
               ]
@@ -703,9 +713,7 @@ export default function GPTPaiton({
                   <button
                     type="button"
                     key={id}
-                    aria-pressed={
-                      (profile === "auto" ? defaultProfile : profile) === id
-                    }
+                    aria-pressed={replyProfile?.id === id}
                     onClick={() => {
                       setProfile(id);
                       nonce.current = null;
@@ -724,19 +732,22 @@ export default function GPTPaiton({
                 setProfile(value);
                 nonce.current = null;
               }}
-              defaultId={defaultProfile}
+              defaultId={replyDefault}
               label="Reply model"
             />
           </div>
-          {(profile === "auto" ? defaultProfile : profile) ===
-            "minicpm5-chat" && (
+          {replyProfile?.id === "minicpm5-chat" && (
             <p className="fast-model-note">
               Fast replies · MiniCPM5-2B uses a smaller model and skips extended
               reasoning. Expect lower quality on complex questions, arithmetic
               and code. Switch to GPT-OSS for deeper work.
             </p>
           )}
-          <p>Choose conversation mode and reasoning effort in the composer.</p>
+          <p>
+            {adjustableReasoning
+              ? "Choose conversation mode and reasoning effort in the composer."
+              : "This profile gives direct answers. Choose GPT-OSS for adjustable reasoning effort."}
+          </p>
         </section>
         <section>
           <h2>Local tools</h2>

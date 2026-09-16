@@ -42,6 +42,24 @@ export function taskProfiles(tools, task) {
       })),
   );
 }
+export function selectedProfile(
+  tools,
+  task,
+  value = "auto",
+  defaultId = "auto",
+) {
+  const all = taskProfiles(tools, task);
+  const identity = !value || value === "auto" ? defaultId : value;
+  if (identity && identity !== "auto")
+    return all.find((item) => item.id === identity);
+  const ready = all.filter(
+    (item) =>
+      item.state === "ready" && item.compatibility?.compatible !== false,
+  );
+  return (
+    ready.find((item) => item.package.default_for?.includes(task)) || ready[0]
+  );
+}
 export function ModelChoice({
   tools,
   task,
@@ -57,15 +75,9 @@ export function ModelChoice({
     (profile) =>
       profile.state === "ready" && profile.compatibility?.compatible !== false,
   );
-  const effectiveId = !value || value === "auto" ? defaultId : value;
   // Match the backend's deterministic recommendation without changing the
   // saved selection or substituting for an explicit unavailable choice.
-  const selected =
-    !effectiveId || effectiveId === "auto"
-      ? available.find((profile) =>
-          profile.package.default_for?.includes(task),
-        ) || available[0]
-      : all.find((profile) => profile.id === effectiveId);
+  const selected = selectedProfile(tools, task, value, defaultId);
   const noteId = useId();
   const preparationId = useId();
   const note = [selected?.quality_note, selected?.package.quality_note].find(

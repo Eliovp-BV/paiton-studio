@@ -35,7 +35,7 @@ class Manager:
 
 
 def test_all_integrated_models_have_pinned_install_recipes():
-    assert {key for key,p in PACKAGES.items() if p['can_install']} == {'flux','h3','qwen38','qwen-coder','gptoss','wan','fastwan','minicpm5-2b'}
+    assert {key for key,p in PACKAGES.items() if p['can_install']} == {'flux','h3','qwen38','qwen38-mxfp4','qwen-coder','gptoss','wan','fastwan','minicpm5-2b'}
     assert all('@sha256:' in p['image'] for p in PACKAGES.values() if p['can_install'] and p['installer'] not in ('wan','fastwan'))
     assert all(PACKAGES[key]['installer']==key and PACKAGES[key]['image'] is None for key in ('wan','fastwan'))
     assert sum(item['bytes'] for item in H3['files']) == 35917312271

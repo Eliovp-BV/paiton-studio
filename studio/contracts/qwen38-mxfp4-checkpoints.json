@@ -1,0 +1,50 @@
+{
+  "schema": 1,
+  "status": "Pinned original target and DFlash2 snapshots; SHA256 verification required",
+  "models": {
+    "target": {
+      "repository": "amd/Qwen3.8-27B-Quark-AWQ-MXFP4",
+      "revision": "5233554c5fa56afda40150556b95573c2d7d29c0",
+      "files": {
+        "chat_template.jinja": {
+          "bytes": 8952,
+          "sha256": "c3cf9e34abf4f9e36c2d72165aa9c132d3e2a725b6c2586aaa3a8af9d7a81041"
+        },
+        "config.json": {
+          "bytes": 10905,
+          "sha256": "4a139d3e01df039e17b4c8b8362f7944674d76051a8cd96f213c6bc332d69f55"
+        },
+        "generation_config.json": {
+          "bytes": 213,
+          "sha256": "07f857aba5260b2ea2513f80de8062d086661f00eada0a3794964e665ba680f5"
+        },
+        "model.safetensors": {
+          "bytes": 19798196184,
+          "sha256": "be1d745bc7312fdf1486059ec57cdeb514cc4d1aa06528c6677a0ebc0a0e1272"
+        },
+        "tokenizer.json": {
+          "bytes": 12809320,
+          "sha256": "0997f410c57a1f4e53b09e4be8f4a172d90edd9564368fb0847030937229b9f3"
+        },
+        "tokenizer_config.json": {
+          "bytes": 17928,
+          "sha256": "b11349aafa7cdc6a320767cf7ceb29ed82f7eda5d65e8e0819e76f0ce947bf27"
+        }
+      }
+    },
+    "draft": {
+      "repository": "tcclaviger/Qwen3.8-27B-DFlash2-FP8",
+      "revision": "ee0cb26a8279b7910cc28d82a8a3e15e4728d56f",
+      "files": {
+        "config.json": {
+          "bytes": 3256,
+          "sha256": "5b5668a00b26aaebd88c7e3d961f7d1cdef025867fee158dfccb84f29fd8caec"
+        },
+        "model.safetensors": {
+          "bytes": 2118882784,
+          "sha256": "7dbb99a8d0120f502e66b256aa7c0866d933ceeee4a02463d9db591811e8404e"
+        }
+      }
+    }
+  }
+}

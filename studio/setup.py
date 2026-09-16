@@ -195,7 +195,7 @@ class SetupManager:
                 active = next((j for j in jobs if j['package'] == identity and j['state'] not in TERMINAL), None)
                 last = next((j for j in jobs if j['package'] == identity), None)
                 installer = source.get('installer', 'manual')
-                supported_install = installer in ('qwen38', 'flux', 'h3', 'qwen-coder','gptoss','wan','fastwan','minicpm5-2b') and source.get('can_install', False)
+                supported_install = installer in ('qwen38-mxfp4', 'qwen38', 'flux', 'h3', 'qwen-coder','gptoss','wan','fastwan','minicpm5-2b') and source.get('can_install', False)
                 blocked = self._install_block(source, system)
                 state = 'ready' if ready else 'setup_required'
                 if not ready and not supported_install:
@@ -316,6 +316,9 @@ class SetupManager:
                     if spec['installer'] in ('gptoss','wan','fastwan','minicpm5-2b'):
                         from .setup_alternatives import gptoss,wan,minicpm5
                         {'gptoss':gptoss,'wan':wan,'fastwan':wan,'minicpm5-2b':minicpm5}[spec['installer']](self,job)
+                    elif spec['installer'] == 'qwen38-mxfp4':
+                        from .qwen_mxfp4 import install
+                        install(self, job)
                     elif spec['installer'] == 'qwen38':
                         self._qwen38(job)
                     elif spec['installer'] in ('flux', 'h3', 'qwen-coder'):

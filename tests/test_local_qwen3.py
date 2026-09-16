@@ -83,7 +83,7 @@ def test_consumer_tools_omit_unreleased_candidates_but_keep_incompatible_install
         rejected=client.post('/api/setup/qwen3-4b/install')
     assert response.status_code==200
     tools=response.json()
-    assert {item['id'] for item in tools}=={'minicpm5-2b','flux','h3','qwen-coder','qwen38','gptoss','wan','fastwan'}
+    assert {item['id'] for item in tools}=={'minicpm5-2b','flux','h3','qwen-coder','qwen38','qwen38-mxfp4','gptoss','wan','fastwan'}
     assert all(item['integrated'] and item['installed'] and item['state']=='incompatible' for item in tools)
     assert rejected.status_code==400
     assert rejected.json()['error']=='Choose a supported local model package.'

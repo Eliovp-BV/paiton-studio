@@ -91,7 +91,7 @@ def test_install_requires_supported_available_package_and_is_idempotent(manager)
 
 
 def test_consumer_setup_excludes_unreleased_candidates_but_keeps_supported_tools(manager):
-    public = {'minicpm5-2b', 'flux', 'h3', 'qwen-coder', 'qwen38', 'gptoss', 'wan', 'fastwan'}
+    public = {'minicpm5-2b', 'flux', 'h3', 'qwen-coder', 'qwen38', 'qwen38-mxfp4', 'gptoss', 'wan', 'fastwan'}
     manager._system = system_ready
     probes = []
     manager._readiness = lambda package: probes.append(package) or (False, 'Missing files')

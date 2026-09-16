@@ -38,6 +38,7 @@ const tools = [
     id: "gptoss",
     name: "GPT-OSS",
     model: "GPT-OSS-20B",
+    reasoning_efforts: ["low", "medium", "high"],
     state: "ready",
     compatibility: { compatible: true },
     profiles: [

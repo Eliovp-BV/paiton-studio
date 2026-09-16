@@ -5,6 +5,7 @@ never because its display name resembles a task. New model packages can reuse an
 adapter after their launch contract and profiles have been qualified.
 """
 from copy import deepcopy
+from .qwen_mxfp4 import REVISION as MXFP4_REVISION
 
 SCHEMA_VERSION = 1
 ADAPTERS = {
@@ -16,6 +17,16 @@ ADAPTERS = {
 ROLE_TASKS = {'image': 'image', 'video': 'video', 'write': 'write', 'website': 'write', 'chat':'write', 'code':'write', 'video_text':'video'}
 ROLE_CAPABILITIES = {'image': 'image.generate', 'video': 'video.animate_image', 'write': 'text.generate', 'website': 'text.plan_site', 'chat':'text.chat', 'code':'text.code', 'video_text':'video.generate'}
 PACKAGES = [
+    dict(id='qwen38-mxfp4', name='Fast writing, websites & chat', model='Qwen3.8 27B MXFP4 + DFlash2 · Paiton',
+         revision=MXFP4_REVISION, integrated=True, adapter='paiton-chat',
+         default_for=['write', 'website', 'chat', 'code'], tasks=['write'],
+         capabilities=['text.generate', 'text.plan_site', 'text.chat', 'text.code'], vram_gib=None,
+         license='Component-specific terms; see the published runtime and checkpoint notices',
+         quality_note='Recommended local text model. DFlash2 accelerates replies; this profile uses direct answers with extended thinking off. Review facts and generated code.',
+         preparation_note='First setup downloads both the target and draft model. Loading verifies their weights and prepares the local runtime; follow-up requests reuse the ready model.',
+         profiles=[dict(id='qwen38-mxfp4-writing', label='Writing · up to 2048 tokens', task='write', roles=['write'], context=8192, max_tokens=2048),
+                   dict(id='qwen38-mxfp4-website', label='Website planning · up to 3500 tokens', task='write', roles=['website'], context=8192, max_tokens=3500),
+                   dict(id='qwen38-mxfp4-chat', label='Conversation & code · up to 2048 tokens', task='write', roles=['chat', 'code'], context=8192, max_tokens=2048)]),
     dict(id='minicpm5-2b', name='Small local chat & code', model='MiniCPM5-2B W4A16 · Paiton',
          revision='6c1ee6fa521aa53f47cfb32696e6d8ef5b0db805', integrated=True,
          adapter='paiton-chat', default_for=[], tasks=['write'],
@@ -42,6 +53,10 @@ for _package in PACKAGES:
 # These are admission floors derived from retained driver-memory peaks, not
 # claims of qualification on smaller boards. Device qualification is separate.
 HARDWARE = {
+    'qwen38-mxfp4': dict(supported_architectures=['gfx1201'], required_device_names=['AMD Radeon AI PRO R9700'],
+                         required_vram_gib=32, minimum_reported_vram_gib=31,
+                         qualification='Published MXFP4 + DFlash2 release qualified on one 32 GB Radeon AI PRO R9700. Other GPUs are not yet qualified.',
+                         memory_basis='Target, draft and fixed 5 GiB KV cache use the published 32 GB hardware profile.'),
     'minicpm5-2b': dict(supported_architectures=['gfx1201'], required_device_names=['AMD Radeon AI PRO R9700'],
                       required_vram_gib=8, minimum_reported_vram_gib=8,
                       qualification='Qualified on one 32 GB Radeon AI PRO R9700. Other GPUs have not been tested.',
