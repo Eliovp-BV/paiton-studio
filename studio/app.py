@@ -191,10 +191,21 @@ def create_app(data=None,config=None,worker_enabled=True):
     def chat_create(identity,body:ChatCreate): return chats.create(identity,body.title)
 
     @app.get('/api/chats/{identity}')
-    def chat_get(identity): return chats.get(identity)
+    def chat_get(identity,compact:bool=False): return chats.get(identity,compact=compact)
 
     @app.post('/api/chats/{identity}/messages')
     def chat_send(identity,body:ChatSend): return chats.send(identity,body)
+
+    from .chat import ChatOptions
+
+    @app.put('/api/chats/{identity}/options')
+    def chat_options(identity,body:ChatOptions): return chats.options(identity,body)
+
+    @app.get('/api/chats/{identity}/context/{job}')
+    def chat_context(identity,job): return chats.context(identity,job)
+
+    @app.post('/api/chats/{identity}/retry/{job}')
+    def chat_retry(identity,job): return chats.retry(identity,job)
 
     @app.post('/api/projects/{identity}/attachments')
     async def chat_attachment(identity,file:UploadFile):
@@ -203,7 +214,10 @@ def create_app(data=None,config=None,worker_enabled=True):
         return await run_in_threadpool(import_document,store,identity,file.filename,content)
 
     @app.get('/api/status')
-    def status(): return {'gpu':gpu_status(),'jobs':store.rows('SELECT * FROM jobs ORDER BY created DESC LIMIT 100'),'worker':worker.diagnostics(),'chat_model_ready':runtime.warm_live(),'model_memory':runtime.memory_status()}
+    def status(compact:bool=False):
+        from .chat import compact_job
+        jobs=store.rows('SELECT * FROM jobs ORDER BY created DESC LIMIT 100')
+        return {'gpu':gpu_status(),'jobs':[compact_job(j) for j in jobs] if compact else jobs,'worker':worker.diagnostics(),'chat_model_ready':runtime.warm_live(),'model_memory':runtime.memory_status()}
 
     @app.get('/api/system')
     def system_get(): return {**system_info.snapshot(),'runtime_docker_endpoint':runtime.docker.endpoint}
@@ -242,6 +256,9 @@ def create_app(data=None,config=None,worker_enabled=True):
             # An older open Studio tab cannot erase a newly introduced policy.
             if 'performance' not in body.model_fields_set:
                 body.performance.keep_ready_minutes=get_settings(store)['performance']['keep_ready_minutes']
+            if 'conversation' not in body.model_fields_set:
+                from .conversation_options import ConversationOptions
+                body.conversation=ConversationOptions.model_validate(get_settings(store)['conversation'])
             save_settings(store,body)
             runtime.configure_memory_policy(body.performance.keep_ready_minutes)
             return settings_response(store)

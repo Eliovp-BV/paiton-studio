@@ -11,9 +11,11 @@ import time
 
 from .store import safe_path
 
-IMAGE_ID = 'sha256:9b2dae214076d35de785e073b31294b033a376b16e6bc1ec1fdada4e54d96c59'
+from .conversation_options import IMAGES
+
+IMAGE_ID = IMAGES['64k'].split('@')[1]
 IMAGE = 'ghcr.io/eliovp/paiton-vllm-plugin@' + IMAGE_ID
-SOURCE_REVISION = '8b67db025a2d027fe577d9d4746f4f669e8ffb02'
+SOURCE_REVISION = '870030b300f8360482cd5f14dcc222e4bc012fa6'
 MODELS = json.loads((Path(__file__).parent / 'contracts/qwen38-mxfp4-checkpoints.json').read_text())['models']
 REVISION = MODELS['target']['revision']
 DOWNLOAD_BYTES = sum(file['bytes'] for model in MODELS.values() for file in model['files'].values())
@@ -37,11 +39,11 @@ def sources(config):
     return [(volume, '/pinned-cache')], arguments
 
 
-def verify_image(inspected):
+def verify_image(inspected, expected=IMAGE):
     image = json.loads(inspected)[0]
     # Containerd-backed Docker reports the index digest as Id; classic Docker
     # can report the config digest instead. The immutable RepoDigest pins both.
-    if image.get('Id') != IMAGE_ID and IMAGE not in image.get('RepoDigests', []):
+    if expected not in IMAGES.values() or (image.get('Id') != expected.split('@')[1] and expected not in image.get('RepoDigests', [])):
         raise ValueError('Install the pinned Qwen3.8 MXFP4 + DFlash2 runtime. Qronos and other Qwen images cannot serve this profile.')
 
 
@@ -57,7 +59,7 @@ def verify_folder(directory, spec):
 
 
 def preflight(runtime, image, inspected):
-    verify_image(inspected)
+    verify_image(inspected, image)
     mounts, arguments = sources(runtime.config)
     if len(mounts) == 2:
         for (path, _), spec in zip(mounts, MODELS.values()):
@@ -66,7 +68,7 @@ def preflight(runtime, image, inspected):
     volume = mounts[0][0]
     if runtime.command(['volume', 'inspect', volume]).returncode:
         raise ValueError('The configured Qwen MXFP4 cache volume is missing. Studio will not create or download one during generation.')
-    key = ('qwen38-mxfp4', IMAGE_ID, volume)
+    key = ('qwen38-mxfp4', image, volume)
     if time.monotonic() - runtime._source_checks.get(key, float('-inf')) < 30:
         return
     # No GPU or network access, no cache ownership changes, and no volume copy-up.
@@ -89,12 +91,22 @@ def preflight(runtime, image, inspected):
 
 def install(manager, job):
     """CPU-only, resumable downloads; no server or GPU is started by setup."""
-    inspected = manager.run(['docker', 'image', 'inspect', IMAGE], None)
-    if inspected.returncode:
-        manager.update(job, 'downloading_runtime', 'Downloading the pinned Qwen MXFP4 runtime. Existing Docker layers are reused.', total_bytes=None)
-        manager.run(['docker', 'pull', IMAGE], job)
-        inspected = manager.run(['docker', 'image', 'inspect', IMAGE], job)
-    verify_image(inspected.stdout)
+    for image in IMAGES.values():
+        inspected = manager.run(['docker', 'image', 'inspect', image], None)
+        if inspected.returncode:
+            manager.update(job, 'downloading_runtime', 'Downloading the corrected conversation runtimes. Existing layers and checkpoints are reused.', total_bytes=None)
+            manager.run(['docker', 'pull', image], job)
+            inspected = manager.run(['docker', 'image', 'inspect', image], job)
+        verify_image(inspected.stdout, image)
+    if hasattr(manager, 'runtime'):
+        try:
+            inspected = manager.run(['docker', 'image', 'inspect', IMAGE], None)
+            preflight(manager.runtime, IMAGE, inspected.stdout)
+        except (ValueError, OSError):
+            pass
+        else:
+            manager.configure({'qwen38_mxfp4_image': IMAGE}, job)
+            return
     manager.update(job, 'downloading', 'Downloading and verifying the Qwen target and its DFlash2 draft model.',
                    total_bytes=DOWNLOAD_BYTES, completed_bytes=0)
     updates = {'qwen38_mxfp4_image': IMAGE}

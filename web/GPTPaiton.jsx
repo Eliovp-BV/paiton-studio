@@ -15,6 +15,7 @@ import {
 import { ModelChoice, taskProfiles, selectedProfile } from "./WorkspaceExtras";
 import { stageForJob, formatElapsed, studioNow } from "./creationFeedback";
 import "./gptpaiton.css";
+import ConversationControls from "./ConversationControls";
 import { MachineStatus } from "./StudioIdentity";
 const terminal = ["completed", "failed", "cancelled"];
 async function copyText(text) {
@@ -94,11 +95,14 @@ export default function GPTPaiton({
   initialIntent,
   defaultProfile = "auto",
   defaultCodeProfile = "auto",
+  defaultConversationOptions,
 }) {
   useEffect(() => {
     if (initialIntent?.text) setPrompt(initialIntent.text);
     if (initialIntent?.profile) setProfile(initialIntent.profile);
   }, [initialIntent?.id]);
+  const [optionsDraft, setOptionsDraft] = useState(null);
+  const optionsVersion = useRef(0);
   const [chats, setChats] = useState([]),
     [chat, setChat] = useState(null),
     [prompt, setPrompt] = useState(""),
@@ -134,7 +138,7 @@ export default function GPTPaiton({
     setPrompt("");
     setFiles([]);
     nonce.current = null;
-    const value = await api(`/chats/${id}`);
+    const value = await api(`/chats/${id}?compact=true`);
     if (alive.current && selected.current === id) setChat(value);
   }
   useEffect(() => {
@@ -178,8 +182,15 @@ export default function GPTPaiton({
       if (inFlight) return;
       inFlight = true;
       try {
-        const value = await api(`/chats/${id}`);
-        if (!done && alive.current && selected.current === id) setChat(value);
+        const generation = optionsVersion.current;
+        const value = await api(`/chats/${id}?compact=true`);
+        if (
+          !done &&
+          alive.current &&
+          selected.current === id &&
+          generation === optionsVersion.current
+        )
+          setChat(value);
       } catch (e) {
         if (!done) report(e);
       } finally {
@@ -210,6 +221,39 @@ export default function GPTPaiton({
       report(e);
     }
   }
+  async function saveOptions(patch) {
+    if (optionsDraft) return;
+    setOptionsDraft({ ...chat?.options, ...patch });
+    optionsVersion.current += 1;
+    try {
+      let current = chat;
+      if (!current) {
+        current = await api(`/projects/${project.id}/chats`, {});
+        selected.current = current.id;
+      }
+      await api(
+        `/chats/${current.id}/options`,
+        { ...current.options, ...patch },
+        "PUT",
+      );
+      if (alive.current && selected.current === current.id)
+        setChat(await api(`/chats/${current.id}?compact=true`));
+      await refresh();
+    } catch (error) {
+      report(error);
+    } finally {
+      optionsVersion.current += 1;
+      setOptionsDraft(null);
+    }
+  }
+  async function retryReply(job) {
+    try {
+      await api(`/chats/${chat.id}/retry/${job.id}`, {});
+      setChat(await api(`/chats/${chat.id}?compact=true`));
+    } catch (error) {
+      report(error);
+    }
+  }
   async function send(event) {
     event.preventDefault();
     if (sending || uploading || busy || !prompt.trim()) return;
@@ -234,14 +278,14 @@ export default function GPTPaiton({
         profile_id: profile,
         image_profile_id: imageProfile,
         reasoning_effort: effort,
-        document_ids: files.map((f) => f.id),
+        document_ids: files.length ? files.map((f) => f.id) : undefined,
         client_id: nonce.current,
       });
       if (!alive.current || selected.current !== id) return;
       nonce.current = null;
       setPrompt("");
       setFiles([]);
-      const value = await api(`/chats/${id}`);
+      const value = await api(`/chats/${id}?compact=true`);
       if (alive.current && selected.current === id) setChat(value);
       await refresh();
     } catch (e) {
@@ -397,8 +441,8 @@ export default function GPTPaiton({
                     <figure>
                       <p className="helper">
                         Done — your image is saved. You can keep chatting.
-                        Studio restores recent conversation context when the
-                        chat model reloads.
+                        Studio restores saved conversation context when the chat
+                        model reloads.
                       </p>
                       <img
                         src={`/api/assets/${turn.asset.id}`}
@@ -463,6 +507,11 @@ export default function GPTPaiton({
                   ) : (
                     <div role="status">
                       <p>{turn.job.message}</p>
+                      {chat.turns.at(-1)?.id === turn.id && (
+                        <button onClick={() => retryReply(turn.job)}>
+                          Retry saved request
+                        </button>
+                      )}
                       <button
                         onClick={() => {
                           setPrompt(turn.prompt);
@@ -498,19 +547,43 @@ export default function GPTPaiton({
                       )}
                     </div>
                   )}
+                  {turn.context && (
+                    <div className="gpt-context-note">
+                      {turn.context.summarized
+                        ? "Older material summarized locally. Original messages remain saved."
+                        : "Saved conversation context included."}{" "}
+                      {turn.context.input_tokens?.toLocaleString()} input tokens
+                      · {turn.context.output_reserved?.toLocaleString()}{" "}
+                      reserved for the reply.{" "}
+                      <a
+                        href={`/api/chats/${chat.id}/context/${turn.job.id}`}
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        View submitted context
+                      </a>
+                    </div>
+                  )}
+                  {turn.asset?.metadata?.tool_artifacts?.length > 0 && (
+                    <p className="gpt-context-note">
+                      {turn.asset.metadata.tool_artifacts.length} code draft(s)
+                      saved in the project Library for review. Nothing executed.
+                    </p>
+                  )}
                   {turn.job.request.sources?.length > 0 && (
                     <details className="gpt-sources">
-                      <summary>Document sources · selected excerpts</summary>
+                      <summary>Saved document sources</summary>
                       <p>
-                        Local keyword matching selects up to 8 excerpts. This is
-                        not a claim that every page was reviewed.
+                        Source versions are preserved with this conversation.
+                        Older material may be summarized to fit the selected
+                        context.
                       </p>
                       {turn.job.request.sources.map((source) => (
                         <p key={source.id}>
-                          {source.name}:{" "}
-                          {source.excerpts.length
-                            ? `excerpts ${source.excerpts.join(", ")}`
-                            : "not included in this answer context"}
+                          {source.name} ·{" "}
+                          {source.sha256
+                            ? `saved version ${source.sha256.slice(0, 8)}`
+                            : `excerpts ${(source.excerpts || []).join(", ")}`}
                         </p>
                       ))}
                     </details>
@@ -561,7 +634,7 @@ export default function GPTPaiton({
                 if (!busy && !sending) send(e);
               }
             }}
-            maxLength={8000}
+            maxLength={200000}
           />
           <div className="gpt-compose-actions">
             <input
@@ -736,6 +809,18 @@ export default function GPTPaiton({
               label="Reply model"
             />
           </div>
+          {replyProfile?.package?.id === "qwen38-mxfp4" && (
+            <ConversationControls
+              value={
+                optionsDraft?.conversation ||
+                chat?.options?.conversation ||
+                defaultConversationOptions
+              }
+              disabled={Boolean(optionsDraft)}
+              onChange={(conversation) => saveOptions({ conversation })}
+              pending={chat?.profile_change_pending}
+            />
+          )}
           {replyProfile?.id === "minicpm5-chat" && (
             <p className="fast-model-note">
               Fast replies · MiniCPM5-2B uses a smaller model and skips extended
@@ -751,6 +836,29 @@ export default function GPTPaiton({
         </section>
         <section>
           <h2>Local tools</h2>
+          <label className="conversation-option">
+            <span>
+              <strong>Project code tools</strong>
+              <small>
+                Allow reading selected source documents and saving new drafts.
+                No code execution, arbitrary files or sending messages.
+              </small>
+            </span>
+            <input
+              type="checkbox"
+              checked={
+                optionsDraft?.tools_enabled ??
+                chat?.options?.tools_enabled ??
+                false
+              }
+              disabled={
+                Boolean(optionsDraft) ||
+                (replyProfile?.package?.id !== "qwen38-mxfp4" &&
+                  !chat?.options?.tools_enabled)
+              }
+              onChange={(e) => saveOptions({ tools_enabled: e.target.checked })}
+            />
+          </label>
           <p>
             Document analysis · image generation · writing & code assistance
           </p>

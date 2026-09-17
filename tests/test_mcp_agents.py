@@ -9,7 +9,7 @@ from studio.mcp_agents import AgentServers
 @pytest.fixture
 def app_client(tmp_path, monkeypatch):
     for module in ('studio.agents', 'studio.mcp_agents'):
-        monkeypatch.setattr(module+'.resolve_profile', lambda *a: profile('gptoss-chat','write','chat'))
+        monkeypatch.setattr(module+'.resolve_profile', lambda *a, **kw: profile('gptoss-chat','write','chat'))
     app = create_app(tmp_path, {}, worker_enabled=False)
     with TestClient(app) as client:
         client.headers['x-studio-token'] = client.get('/api/session').json()['token']
@@ -111,14 +111,14 @@ def test_two_step_results_and_project_quota(app_client):
 def test_missing_model_and_atomic_grant_guard(app_client,monkeypatch):
     app,c=app_client;bridge=app.state.agent_servers
     p=c.post('/api/projects').json()['id'];server=create(c,p)
-    def unavailable(*a):raise ValueError('Install a model first.')
+    def unavailable(*a, **kw):raise ValueError('Install a model first.')
     monkeypatch.setattr('studio.mcp_agents.resolve_profile',unavailable)
     response=c.post(f"/api/projects/{p}/mcp-servers/{server['id']}",json={'enabled':True})
     assert response.status_code==400 and not bridge.get(p,server['id'])['enabled']
-    monkeypatch.setattr('studio.mcp_agents.resolve_profile',lambda *a:profile('gptoss-chat','write','chat'))
+    monkeypatch.setattr('studio.mcp_agents.resolve_profile',lambda *a, **kw:profile('gptoss-chat','write','chat'))
     auth=enable(c,p,server)
     # Revoke after the initial authorization but before the queue transaction.
-    def revoke(*a):
+    def revoke(*a, **kw):
         with bridge.store.connect() as db:db.execute('UPDATE mcp_agent_servers SET enabled=0')
         return profile('gptoss-chat','write','chat')
     monkeypatch.setattr('studio.agents.resolve_profile',revoke)

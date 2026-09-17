@@ -16,6 +16,7 @@ import {
 import { WIKI } from "./wiki.js";
 import { EditorialHero, MachineStatus } from "./StudioIdentity";
 import SetupTools from "./SetupTools";
+import ConversationControls from "./ConversationControls";
 import ModelMemorySettings from "./ModelMemorySettings";
 import SystemDetails from "./SystemDetails";
 import ReadinessPanel from "./ReadinessPanel";
@@ -361,12 +362,14 @@ export function StudioSettings({
       appearance: draft.appearance,
       generation: draft.generation,
       performance: draft.performance,
+      conversation: draft.conversation,
     }) !==
     JSON.stringify({
       defaults: settings.defaults,
       appearance: settings.appearance,
       generation: settings.generation,
       performance: settings.performance,
+      conversation: settings.conversation,
     });
   const labels = [
     [
@@ -459,6 +462,17 @@ export function StudioSettings({
                   </div>
                 ))}
               </div>
+            </section>
+            <section className="panel settings-section">
+              <h2>Chat &amp; coding memory</h2>
+              <p>
+                Defaults for new Qwen3.8 MXFP4 + DFlash2 conversations and
+                coding agents. Existing chats keep their own settings.
+              </p>
+              <ConversationControls
+                value={draft.conversation}
+                onChange={(value) => update("conversation", value)}
+              />
             </section>
             <section className="panel settings-section">
               <h2>Workspace preferences</h2>

@@ -1,0 +1,90 @@
+.conversation-controls {
+  display: grid;
+  gap: 12px;
+  margin-top: 16px;
+  text-align: left;
+}
+.conversation-profile-label {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  color: var(--studio-gold, #f3c775);
+}
+.conversation-option {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: flex-start !important;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 10px 0;
+  margin: 0 !important;
+}
+.conversation-option > span {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+}
+.conversation-option strong {
+  font-size: 14px;
+  font-weight: 550;
+}
+.conversation-option small,
+.conversation-memory-note,
+.conversation-controls details p,
+.conversation-controls dd {
+  font-size: 12px !important;
+  line-height: 1.5;
+  color: var(--studio-text-muted, #a5a8ae);
+}
+.conversation-option input[type="checkbox"] {
+  flex: 0 0 auto;
+  width: 18px;
+  height: 18px;
+  margin-top: 3px;
+  accent-color: var(--studio-gold, #f3c775);
+}
+.conversation-controls details {
+  border-top: 1px solid #ffffff13;
+  padding-top: 10px;
+}
+.conversation-controls summary {
+  font-size: 12px;
+  cursor: pointer;
+}
+.conversation-controls dl {
+  display: grid;
+  gap: 4px;
+  margin: 14px 0;
+}
+.conversation-controls dt {
+  font-size: 12px;
+}
+.conversation-controls dd {
+  margin: 0 0 7px;
+}
+.conversation-pending {
+  border-left: 2px solid #f3c775;
+  background: #f3c7750c;
+  padding: 10px;
+  font-size: 12px !important;
+  line-height: 1.5;
+}
+.gpt-context-note {
+  font-size: 12px;
+  color: #c3b9a6;
+  margin-top: 10px;
+  line-height: 1.5;
+}
+.gpt-context-note a {
+  color: #f3c775;
+}
+@media (min-width: 1151px) {
+  :root .studio-shell .gpt-context {
+    max-height: max(680px, calc(100vh - 165px));
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    align-self: start;
+    scrollbar-width: thin;
+    padding-right: 6px;
+  }
+}

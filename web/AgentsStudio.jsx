@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useRef } from "react";
 import { Bot, ArrowRight, Plus, Play, Square, FileText } from "lucide-react";
+import ConversationControls from "./ConversationControls";
 import { ModelChoice } from "./WorkspaceExtras";
 const TERMINAL = ["completed", "failed", "cancelled"];
 export default function AgentsStudio({
@@ -10,6 +11,7 @@ export default function AgentsStudio({
   initialIntent,
   onIntentConsumed,
   onMCPServer,
+  defaultConversationOptions,
 }) {
   const pending = useRef(null);
   const savedForServer = useRef(null);
@@ -25,6 +27,7 @@ export default function AgentsStudio({
       template: "brief",
       profile_id: "auto",
       document_ids: [],
+      conversation: defaultConversationOptions,
     });
   const [instruction, setInstruction] = useState(""),
     [error, setError] = useState(""),
@@ -75,6 +78,7 @@ export default function AgentsStudio({
         template: starter.template || "custom",
         profile_id: "auto",
         document_ids: [],
+        conversation: defaultConversationOptions,
       });
     }
     onIntentConsumed?.();
@@ -188,6 +192,7 @@ export default function AgentsStudio({
                   setDraft((d) => ({
                     ...d,
                     template: t.id,
+                    tools_enabled: false,
                     purpose: t.purpose,
                     name: t.id === "custom" ? "" : t.name,
                   }))
@@ -261,13 +266,47 @@ export default function AgentsStudio({
             <summary>Model choice</summary>
             <ModelChoice
               tools={tools}
-              task="chat"
+              task={draft.template === "code" ? "code" : "chat"}
               value={draft.profile_id}
-              onChange={(profile_id) => setDraft({ ...draft, profile_id })}
+              onChange={(profile_id) =>
+                setDraft({ ...draft, profile_id, tools_enabled: false })
+              }
               label="Agent model"
               details
             />
           </details>
+          <details>
+            <summary>Conversation memory · Qwen3.8</summary>
+            <ConversationControls
+              value={draft.conversation}
+              disabled={
+                !["auto", "qwen38-mxfp4-chat"].includes(draft.profile_id)
+              }
+              onChange={(conversation) => setDraft({ ...draft, conversation })}
+            />
+          </details>
+          {draft.template === "code" && (
+            <label className="conversation-option">
+              <span>
+                <strong>Enable project code tools</strong>
+                <small>
+                  Allow this agent and its connected MCP clients to read only
+                  selected source documents and save new code drafts. Qwen3.8
+                  MXFP4 + DFlash2 required. Nothing is executed or overwritten.
+                </small>
+              </span>
+              <input
+                type="checkbox"
+                checked={draft.tools_enabled || false}
+                disabled={
+                  !["auto", "qwen38-mxfp4-chat"].includes(draft.profile_id)
+                }
+                onChange={(e) =>
+                  setDraft({ ...draft, tools_enabled: e.target.checked })
+                }
+              />
+            </label>
+          )}
           <div className="agent-contract">
             <span className="eyebrow">03 / HOW IT WORKS</span>
             <h3>
@@ -275,9 +314,10 @@ export default function AgentsStudio({
               Save
             </h3>
             <p>
-              Each run makes two local model requests. Results stay in this
-              project for you to review. No shell commands, external messages,
-              background schedules or automatic publishing.
+              Each run drafts and reviews. Optional coding tools use up to five
+              tool rounds before review. Results stay in this project for you to
+              review. No shell commands, external messages, background schedules
+              or automatic publishing.
             </p>
             <small>
               Several agents can share a model. Studio currently runs their GPU

@@ -1,0 +1,118 @@
+{
+  "schema": 1,
+  "release": "agentic-v1.1.0",
+  "metadata_status": "release-metadata",
+  "source_repository": "https://github.com/Eliovp-BV/paiton-vllm-plugin",
+  "registry_repository": "ghcr.io/eliovp/paiton-vllm-plugin",
+  "hardware": {
+    "gpu_count": 1,
+    "arch": "gfx1201",
+    "qualified_gpu": "Radeon AI PRO R9700 32 GB"
+  },
+  "vllm_version": "0.28.0+rocm723",
+  "base": {
+    "registry_image": "ghcr.io/eliovp/paiton-vllm-plugin@sha256:9b2dae214076d35de785e073b31294b033a376b16e6bc1ec1fdada4e54d96c59",
+    "registry_tag": "ghcr.io/eliovp/paiton-vllm-plugin:qwen38-mxfp4-dflash2-rdna4-v1.0.0",
+    "original_tag_and_digest_preserved": true
+  },
+  "native_runtime": {
+    "unchanged_from_base": true,
+    "artifact_count": 16,
+    "native_binaries_and_manifests_hash_verified": true,
+    "public_plugin_unchanged_from_base": true,
+    "native_independent_load_verified": true,
+    "compiler_required_by_end_user": false
+  },
+  "distribution_changes": [
+    "Public container entrypoint",
+    "Selected agentic engine profile",
+    "Sanitized OCI labels"
+  ],
+  "checkpoint_lock": {
+    "file": "checkpoint.lock.json",
+    "sha256": "a509a4e44383752a1115c795ba8ad6295780bd9392571a2cdeec3340e7378baa",
+    "models": {
+      "target": {
+        "repository": "amd/Qwen3.8-27B-Quark-AWQ-MXFP4",
+        "revision": "5233554c5fa56afda40150556b95573c2d7d29c0"
+      },
+      "draft": {
+        "repository": "tcclaviger/Qwen3.8-27B-DFlash2-FP8",
+        "revision": "ee0cb26a8279b7910cc28d82a8a3e15e4728d56f"
+      }
+    }
+  },
+  "entrypoint": {
+    "file": "container_entrypoint.py",
+    "sha256": "16d6f89a72ce433c7b58d6283af3228f4104a6cae0ee495bdda8d88ec38d5a47"
+  },
+  "shared_settings": {
+    "served_model_name": "Qwen3.8-27B-Quark-AWQ-MXFP4",
+    "tensor_parallel_size": 1,
+    "dtype": "bfloat16",
+    "kv_cache_dtype": "fp8",
+    "max_num_batched_tokens": 4096,
+    "chunked_prefill": true,
+    "num_speculative_tokens": 7,
+    "tool_call_parser": "qwen3_xml",
+    "reasoning_parser": "qwen3",
+    "default_chat_template_kwargs": {
+      "enable_thinking": false
+    },
+    "request_thinking_override_supported": true,
+    "prefix_caching": false,
+    "mamba_cache_mode": "none",
+    "async_scheduling": false,
+    "cache_volume": "paiton-qwen38-mxfp4-cache"
+  },
+  "context_limit_semantics": "Total tokenized prompt, including chat/tool template, plus generated output",
+  "images": {
+    "64k": {
+      "registry_tag": "ghcr.io/eliovp/paiton-vllm-plugin:qwen38-mxfp4-dflash2-rdna4-v1.1.0",
+      "registry_image": "ghcr.io/eliovp/paiton-vllm-plugin@sha256:c3ec2528285b484b2e0af7f571f80f1da23c1970210e4d3d09f5d2a909414186",
+      "image_index_digest": "sha256:c3ec2528285b484b2e0af7f571f80f1da23c1970210e4d3d09f5d2a909414186",
+      "profile_file": "engine-profile-agentic-64k-v1.json",
+      "profile_sha256": "76ce2611f3e9831242228ec5334d8cb22c8a4e31e852ee417a64edc112badbbb",
+      "max_model_len": 65536,
+      "draft_max_model_len": 65536,
+      "max_num_seqs": 8,
+      "kv_cache_memory_bytes": 5368709120,
+      "validation_scope": "Functional API, synthetic single-request long-context retrieval, and OpenCode 1.18.31 read/write smoke; not full benchmark or model-quality qualification",
+      "publication": {
+        "status": "published-and-immutable-pull-verified",
+        "published": true,
+        "immutable_pull_verified": true,
+        "anonymous_manifest_access": true,
+        "published_at": "2026-09-17T07:23:38.027490+00:00"
+      },
+      "limits": [
+        "Eight is the scheduler limit, not eight simultaneously resident full-length 64K requests",
+        "Long prompts reduce resident concurrency at the fixed 5 GiB cache budget"
+      ]
+    },
+    "200k": {
+      "registry_tag": "ghcr.io/eliovp/paiton-vllm-plugin:qwen38-mxfp4-dflash2-rdna4-200k-v1.1.0",
+      "registry_image": "ghcr.io/eliovp/paiton-vllm-plugin@sha256:28af1731cfd8aceab51915411e8f879531128c2711b4193c76c5b6eba8ba2ef4",
+      "image_index_digest": "sha256:28af1731cfd8aceab51915411e8f879531128c2711b4193c76c5b6eba8ba2ef4",
+      "profile_file": "engine-profile-agentic-200k-v1.json",
+      "profile_sha256": "657ac95e6809a1b0eef61ee31c8467bcff9a6ca745fe634e9f0f2137528baf83",
+      "max_model_len": 200000,
+      "draft_max_model_len": 200000,
+      "max_num_seqs": 1,
+      "kv_cache_memory_bytes": 8589934592,
+      "validation_scope": "One active request; synthetic 195999-token prompt plus 57-token response, three-marker retrieval smoke only; tight VRAM headroom, no full benchmark or long-context model-quality qualification",
+      "publication": {
+        "status": "published-and-immutable-pull-verified",
+        "published": true,
+        "immutable_pull_verified": true,
+        "anonymous_manifest_access": true,
+        "published_at": "2026-09-17T07:19:01.429741+00:00"
+      },
+      "limits": [
+        "One active request; additional requests queue",
+        "Tight VRAM and prefill working-memory headroom on 32 GB",
+        "Synthetic near-196K retrieval smoke is not broad long-context model-quality validation"
+      ]
+    }
+  }
+}

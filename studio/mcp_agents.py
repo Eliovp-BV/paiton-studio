@@ -50,7 +50,9 @@ class AgentServers:
             row = self.get(project, identity)
             if enabled:
                 definition = self.agents.agent(row['agent'])['definition']
-                resolve_profile(self.store, self.agents.runtime, 'chat', definition['profile_id'])
+                selected=resolve_profile(self.store, self.agents.runtime, 'code' if definition['template']=='code' else 'chat', definition['profile_id'], options=definition.get('conversation'))
+                if definition.get('tools_enabled') and selected['package']!='qwen38-mxfp4':
+                    raise ValueError('Project coding tools require Qwen3.8 MXFP4 + DFlash2.')
             with self.store.connect() as db:
                 db.execute('UPDATE mcp_agent_servers SET enabled=?,token=?,generation=? WHERE id=?',
                            (int(enabled), secrets.token_urlsafe(32) if enabled else '', uid(), identity))
@@ -81,7 +83,8 @@ class AgentServers:
         definition = self.agents.agent(grant['agent'])['definition']
         return dict(name=definition['name'], purpose=definition['purpose'],
                     selected_document_count=len(definition['document_ids']), local_inference=True,
-                    workflow='Draft, review, save. Two local steps. No shell, mailbox, browsing or automatic publishing.')
+                    project_code_tools=bool(definition.get('tools_enabled')),
+                    workflow='Draft, review, save. Coding tools can read selected sources and save new drafts when explicitly enabled. No shell, mailbox, browsing or automatic publishing.')
 
     def submit(self, auth, body):
         with self.agents.lock:
@@ -106,6 +109,7 @@ class AgentServers:
         return dict(request_id=request_id, state=run['state'], message=run['message'],
                     step_state=active['state'] if active else None, step_message=active['message'] if active else None,
                     text=run['text'][:30000] if run['text'] else None,
+                    text_truncated=bool(run['text'] and len(run['text'])>30000), saved_asset=run['asset'],
                     elapsed_seconds=round((run['updated'] if run['state'] in TERMINAL else time.time())-run['created'], 1),
                     poll_after_seconds=None if run['state'] in TERMINAL else 3)
 

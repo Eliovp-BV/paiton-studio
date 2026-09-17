@@ -8,7 +8,7 @@
   "writing_image": "ghcr.io/eliovp/paiton-vllm-plugin:qwen3-coder-30b-awq-rdna4-v1.0.0",
   "qwen38_image": "ghcr.io/eliovp/paiton-vllm-plugin:qwen38-qronos-rdna4-v1.3.0",
   "qwen38_cache_volume": "paiton-qwen38-cache",
-  "qwen38_mxfp4_image": "ghcr.io/eliovp/paiton-vllm-plugin@sha256:9b2dae214076d35de785e073b31294b033a376b16e6bc1ec1fdada4e54d96c59",
+  "qwen38_mxfp4_image": "ghcr.io/eliovp/paiton-vllm-plugin@sha256:c3ec2528285b484b2e0af7f571f80f1da23c1970210e4d3d09f5d2a909414186",
   "qwen38_mxfp4_target_dir": "/path/to/pinned/Qwen3.8-27B-Quark-AWQ-MXFP4",
   "qwen38_mxfp4_draft_dir": "/path/to/pinned/Qwen3.8-27B-DFlash2-FP8",
   "qwen3_4b_image": null,

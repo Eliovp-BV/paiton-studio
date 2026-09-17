@@ -134,6 +134,9 @@ def validate_snapshot(snapshot, task=None):
     if not isinstance(snapshot, dict):
         raise ValueError('The saved creation profile is invalid.')
     canonical = profile(snapshot.get('id'), task or snapshot.get('task'))
+    if canonical['package']=='qwen38-mxfp4' and 'conversation_options' in snapshot:
+        from .conversation_options import apply_options
+        canonical=apply_options(canonical,snapshot['conversation_options'])
     metadata = {'roles', 'adapter', 'capabilities', 'hardware'}
     for key, value in canonical.items():
         # Hardware policy is evaluated anew below by Runtime; old descriptive

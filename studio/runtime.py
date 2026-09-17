@@ -121,6 +121,9 @@ class Runtime:
             if package not in CHAT_PACKAGES: raise RuntimeFailure('This text model has no qualified launch contract yet.')
             image_key=CHAT_PACKAGES[package]['image_key']
         image=self.config.get(image_key)
+        if package=='qwen38-mxfp4':
+            from .conversation_options import image_for
+            image=image_for(selected)
         inspected=self.command(['image','inspect',image]) if image else None
         if inspected is None or inspected.returncode: raise RuntimeFailure('The local runtime image is not installed. Open Creation tools.')
         if shutil.disk_usage(self.store.root).free<2*1024**3: raise RuntimeFailure('Less than 2 GB of free disk remains. Free space before creating media.')
@@ -257,6 +260,7 @@ class Runtime:
                 retained=dict(package=warm['package'],model=model,
                               state='releasing' if warm.get('releasing') or not remaining else 'ready',
                               idle_remaining_seconds=round(remaining))
+                if warm.get('conversation'): retained['conversation']=warm['conversation']
             return dict(keep_ready_minutes=self.warm_seconds//60,retained_model=retained,
                         retention_package_ids=[p for p,c in CHAT_PACKAGES.items() if c.get('keep_warm')],
                         ram_resume_supported=False)
@@ -269,10 +273,15 @@ class Runtime:
     def warm_for(self,request):
         profile=request['profile']; contract=CHAT_PACKAGES.get(profile['package'],{})
         warm=self._warm
+        image=self.config.get(contract.get('image_key'))
+        if profile['package']=='qwen38-mxfp4':
+            from .conversation_options import image_for,launch_identity
+            image=image_for(profile)
+            if not warm or warm.get('launch_identity')!=launch_identity(profile,self.chat_source(profile['package'],profile['revision'])[0]):return False
         return bool(warm and not warm.get('releasing') and contract.get('keep_warm')
                     and warm.get('package')==profile['package']
                     and warm.get('revision')==profile['revision']
-                    and warm['image']==self.config.get(contract['image_key'])
+                    and warm['image']==image
                     and time.monotonic()<self._warm_deadline(warm))
 
     def warm_live(self):
@@ -344,7 +353,12 @@ class Runtime:
                 except queue.Empty: continue
                 error_tail=(error_tail+line)[-8000:]
                 if line.startswith('STUDIO:'):
-                    data=json.loads(line[7:]); self.store.status(job['id'],data['state'],data['message'],data.get('progress'))
+                    data=json.loads(line[7:])
+                    progress=data.get('progress')
+                    if progress is not None:
+                        previous=self.store.job(job['id']).get('progress') or {}
+                        if previous.get('context'): progress={**progress,'context':previous['context']}
+                    self.store.status(job['id'],data['state'],data['message'],progress)
             if process.returncode:
                 atomic(self.store.root/'jobs'/job['id']/'runtime-error.log',error_tail.encode())
                 if 'out of memory' in error_tail.lower() or 'cannot allocate memory' in error_tail.lower():
@@ -444,44 +458,62 @@ class Runtime:
                 if package=='qwen38-mxfp4':
                     from .qwen_mxfp4 import sources
                     args=sources(self.config)[1]
+                    from .conversation_options import engine_profile
+                    launch=directory/'engine-profile.json'
+                    atomic(launch,json.dumps(engine_profile(profile.get('conversation_options')),sort_keys=True).encode())
+                    mounts=[*mounts,(str(launch),'/opt/paiton-release/engine-profile.json')]
                 container,_=self.start(job,image,['/studio/gptoss_server.py',*args] if package=='gptoss' else args,mounts=mounts,env=env,entrypoint='python3' if package=='gptoss' else None)
                 self.command(['start',container])
             self.wait_ready(job,container,contract['port'],'/health')
-            # All current supported text packages expose vLLM's tokenizer API.
-            # Count the exact templated input and reserve the unchanged output
-            # budget, including for long edited pages and ordinary writing.
-            self.check_cancel(job)
-            tokenized=self.http(container,contract['port'],'/tokenize',{k:body[k] for k in ('model','messages','chat_template_kwargs') if k in body},timeout=20)
-            self.check_cancel(job)
-            count=tokenized.get('count') if isinstance(tokenized,dict) else None
-            if type(count) is not int or count<0:
-                raise RuntimeFailure('The local model could not verify this request’s context size. No generation was started. Check the installed package and retry.')
-            if count+profile['max_tokens']>profile['context']:
-                # A successful tokenizer response confirms the existing server
-                # is healthy. Preserve only an already-retained matching model
-                # so shortening the input does not pay for another cold load.
-                warm=self._warm
-                retain=bool(warm and warm['container']==container and self.warm_for(request)
-                            and not self.store.job(job['id'])['cancel'])
-                raise InputRejected('This request and its source text exceed the selected model’s context budget. Shorten the page or notes, use fewer attachments, or start a new conversation. Nothing was truncated and no generation was started.')
-            message='Drafting your email reply locally.' if (request.get('mail_draft_id') or request.get('mcp_request_id')) else 'Working on your agent’s '+('review.' if request.get('purpose')=='agent-review' else 'draft.') if request.get('agent_run_id') else 'Preparing your conversation reply.' if request.get('chat_id') else 'Rewriting this page from your saved copy and requested changes.' if request.get('purpose')=='website-page-copy' else 'Planning your website from your brief and selected text context.' if request.get('messages') else 'Writing your draft from your notes and selected text context.'
-            self.store.status(job['id'],'generating',message)
-            # Poll cancellation while the isolated HTTP client waits for the local response.
-            atomic(directory/'writing-request.json',json.dumps(dict(port=contract['port'],path='/v1/chat/completions',body=body,timeout=600)).encode())
-            if request.get('chat_id') or request.get('agent_run_id') or (request.get('mail_draft_id') or request.get('mcp_request_id')):
-                self.stream(job,['exec',container,'python3','/studio/chat_stream.py','/studio-jobs/'+job['id']],limit=630)
+            conversation_meta={}
+            if request.get('chat_id') or request.get('agent_run_id'):
+                from .conversation_runner import run as run_conversation
+                try:
+                    response,conversation_meta=run_conversation(self,job,container,contract['port'],body,directory)
+                except ValueError as error:
+                    retain=bool(self._warm and self._warm['container']==container and self.warm_for(request)
+                                and not self.store.job(job['id'])['cancel'])
+                    raise InputRejected(str(error)) from error
+                content=response['choices'][0]['message']['content']
             else:
-                result=self.command(['exec',container,'python3','-c',"import subprocess; from pathlib import Path; r=subprocess.run(['python3','/studio/http_bridge.py'],input=Path('/studio-jobs/"+job['id']+"/writing-request.json').read_bytes(),capture_output=True); Path('/studio-jobs/"+job['id']+"/writing-result.json').write_bytes(r.stdout); raise SystemExit(r.returncode)"],timeout=630)
+                # All current supported text packages expose vLLM's tokenizer API.
+                # Count the exact templated input and reserve the unchanged output
+                # budget, including for long edited pages and ordinary writing.
                 self.check_cancel(job)
-                if result.returncode: raise RuntimeFailure('The writing tool did not complete. Retry the saved request.')
-            response=json.loads((directory/'writing-result.json').read_text()); content=response['choices'][0]['message']['content']
+                tokenized=self.http(container,contract['port'],'/tokenize',{k:body[k] for k in ('model','messages','chat_template_kwargs') if k in body},timeout=20)
+                self.check_cancel(job)
+                count=tokenized.get('count') if isinstance(tokenized,dict) else None
+                if type(count) is not int or count<0:
+                    raise RuntimeFailure('The local model could not verify this request’s context size. No generation was started. Check the installed package and retry.')
+                if count+profile['max_tokens']>profile['context']:
+                    # A successful tokenizer response confirms the existing server
+                    # is healthy. Preserve only an already-retained matching model
+                    # so shortening the input does not pay for another cold load.
+                    warm=self._warm
+                    retain=bool(warm and warm['container']==container and self.warm_for(request)
+                                and not self.store.job(job['id'])['cancel'])
+                    raise InputRejected('This request and its source text exceed the selected model’s context budget. Shorten the page or notes, use fewer attachments, or start a new conversation. Nothing was truncated and no generation was started.')
+                message='Drafting your email reply locally.' if (request.get('mail_draft_id') or request.get('mcp_request_id')) else 'Working on your agent’s '+('review.' if request.get('purpose')=='agent-review' else 'draft.') if request.get('agent_run_id') else 'Preparing your conversation reply.' if request.get('chat_id') else 'Rewriting this page from your saved copy and requested changes.' if request.get('purpose')=='website-page-copy' else 'Planning your website from your brief and selected text context.' if request.get('messages') else 'Writing your draft from your notes and selected text context.'
+                self.store.status(job['id'],'generating',message)
+                # Poll cancellation while the isolated HTTP client waits for the local response.
+                atomic(directory/'writing-request.json',json.dumps(dict(port=contract['port'],path='/v1/chat/completions',body=body,timeout=600)).encode())
+                if request.get('chat_id') or request.get('agent_run_id') or (request.get('mail_draft_id') or request.get('mcp_request_id')):
+                    self.stream(job,['exec',container,'python3','/studio/chat_stream.py','/studio-jobs/'+job['id']],limit=630)
+                else:
+                    result=self.command(['exec',container,'python3','-c',"import subprocess; from pathlib import Path; r=subprocess.run(['python3','/studio/http_bridge.py'],input=Path('/studio-jobs/"+job['id']+"/writing-request.json').read_bytes(),capture_output=True); Path('/studio-jobs/"+job['id']+"/writing-result.json').write_bytes(r.stdout); raise SystemExit(r.returncode)"],timeout=630)
+                    self.check_cancel(job)
+                    if result.returncode: raise RuntimeFailure('The writing tool did not complete. Retry the saved request.')
+                response=json.loads((directory/'writing-result.json').read_text()); content=response['choices'][0]['message']['content']
             if not isinstance(content,str) or not content.strip(): raise RuntimeFailure('The local model did not return a final answer. Your request is saved; retry it or shorten the request.')
             atomic(directory/'result.md',content.encode())
             if contract.get('keep_warm') and (contract.get('retain_for_writing') or request.get('chat_id') or request.get('agent_run_id') or (request.get('mail_draft_id') or request.get('mcp_request_id'))) and not self.store.job(job['id'])['cancel']:
                 with self._memory_policy_lock:
                     self._warm={'container':container,'image':image,'package':package,'revision':profile['revision'],'until':time.monotonic()+self.warm_seconds}
+                    if package=='qwen38-mxfp4':
+                        from .conversation_options import launch_identity,details
+                        self._warm.update(launch_identity=launch_identity(profile,self.chat_source(package,profile['revision'])[0]),conversation=details(profile))
                 retain=True
-            return 'text',directory/'result.md',dict(format=request.get('format','Website plan' if request.get('messages') else 'Blog post'),context=request.get('context',''),text_only=True,finish_reason=response['choices'][0].get('finish_reason'),usage=response.get('usage'),reasoning_effort=request.get('reasoning_effort'),thinking_token_budget=body.get('thinking_token_budget'),max_output_tokens=body['max_tokens'],reasoning_observed=response.get('reasoning_observed',False))
+            return 'text',directory/'result.md',dict(format=request.get('format','Website plan' if request.get('messages') else 'Blog post'),context=request.get('context',''),text_only=True,finish_reason=response['choices'][0].get('finish_reason'),usage=response.get('usage'),reasoning_effort=request.get('reasoning_effort'),thinking_token_budget=body.get('thinking_token_budget'),max_output_tokens=body['max_tokens'],reasoning_observed=response.get('reasoning_observed',False),context_selection=conversation_meta.get('context'),tool_artifacts=conversation_meta.get('tool_artifacts',[]),tool_rounds=conversation_meta.get('tool_rounds',0),timing=conversation_meta.get('timing'))
         finally:
             container=container or self.store.job(job['id']).get('container')
             if not retain:

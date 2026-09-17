@@ -14,7 +14,7 @@ def setup(tmp_path, monkeypatch):
     store = Store(tmp_path)
     project = store.create_project('Agents')
     monkeypatch.setattr('studio.agents.resolve_profile',
-                        lambda *args: profile('minicpm5-chat', 'write', 'chat'))
+                        lambda *args, **kwargs: profile('minicpm5-chat', 'write', 'chat'))
     class Worker:
         def cancel(self, identity):
             store.status(identity, 'cancelled', 'Stopped', cancel=1)
@@ -48,7 +48,7 @@ def test_two_durable_steps_idempotency_reopen_and_export(setup):
     reviewed = agents.get_run(run['id'])
     assert reviewed['state'] == 'reviewing'
     assert len(reviewed['jobs']) == 2
-    assert reviewed['jobs'][1]['request']['messages'][2]['role'] == 'assistant'
+    assert reviewed['jobs'][1]['request']['messages'][-2]['role'] == 'assistant'
     assert reviewed['jobs'][1]['request']['profile'] == request['profile']
     reopened = Agents(Store(store.root), None, agents.worker, Chats(store, None))
     final = complete(store, project, reviewed['jobs'][1])

@@ -49,6 +49,9 @@ def export_project(store,identity):
             chats=Chats(store,None)
             manifest['conversations']=[chats.get(c['id']) for c in chats.list(identity)]
             archive.writestr('conversations.json',json.dumps(manifest['conversations'],indent=2))
+            from .conversation_memory import records
+            archive.writestr('conversation-context.json',json.dumps({turn['job']['id']:records(store,turn['job']['id'])
+                for chat in manifest['conversations'] for turn in chat['turns']},indent=2))
         with store.connect() as db:
             has_agents=db.execute("SELECT 1 FROM sqlite_master WHERE name='agents'").fetchone()
         if has_agents:

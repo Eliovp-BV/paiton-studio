@@ -6,6 +6,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from .registry import PACKAGES, compatible_profiles, compatibility
 from .runtime import RuntimeFailure
 from .telemetry import gpu_status
+from .conversation_options import ConversationOptions, apply_options
 
 
 class Defaults(BaseModel):
@@ -38,6 +39,7 @@ class Performance(BaseModel):
 class SettingsInput(BaseModel):
     model_config = ConfigDict(extra='forbid')
     defaults: Defaults = Field(default_factory=Defaults)
+    conversation: ConversationOptions = Field(default_factory=ConversationOptions)
     appearance: Appearance = Field(default_factory=Appearance)
     generation: Generation = Field(default_factory=Generation)
     performance: Performance = Field(default_factory=Performance)
@@ -53,12 +55,20 @@ def candidates(role):
     return compatible_profiles(role)
 
 
-def resolve_profile(store, runtime, role, identity=None):
+def resolve_profile(store, runtime, role, identity=None, options=None):
     eligible = candidates(role)
     hardware = gpu_status()
+    if role in ('chat','code'):
+        options = options if options is not None else get_settings(store)['conversation']
+        options = ConversationOptions.model_validate(options).model_dump()
+        eligible = [apply_options(p, options) if p['package']=='qwen38-mxfp4' else p for p in eligible]
     choice = identity or 'auto'
     if choice == 'auto':
         choice = get_settings(store)['defaults'][role]
+    if choice=='auto' and role in ('chat','code') and options!=ConversationOptions().model_dump():
+        # A missing long-context image must not silently fall back to a smaller
+        # context on another model. Explicit choices still own their limits.
+        eligible=[p for p in eligible if p['package']=='qwen38-mxfp4']
     if choice != 'auto':
         selected = next((p for p in eligible if p['id'] == choice), None)
         if selected is None:

@@ -52,11 +52,15 @@ def writing_body(request):
         # public job schema rejects unknown fields, including messages.
         if not set(profile.get('roles', [])) & {'website','chat','code'}:
             raise ValueError('Structured planning requires a website model profile.')
-        if not isinstance(messages, list) or not 1 <= len(messages) <= 64:
+        if not isinstance(messages, list) or not 1 <= len(messages) <= 10000:
             raise ValueError('The saved website planning messages are invalid.')
         for message in messages:
-            if not isinstance(message, dict) or set(message) != {'role', 'content'} or message['role'] not in ('system', 'user', 'assistant') or not isinstance(message['content'], str):
+            if not isinstance(message, dict) or message.get('role') not in ('system', 'user', 'assistant', 'tool') or not isinstance(message.get('content', ''), (str, type(None))) or set(message)-{'role','content','tool_calls','tool_call_id'}:
                 raise ValueError('The saved website planning messages are invalid.')
+            if message['role']=='tool' and not isinstance(message.get('tool_call_id'), str):
+                raise ValueError('A tool result must match a saved call ID.')
+            if message.get('tool_calls') and message['role']!='assistant':
+                raise ValueError('Only assistant messages can contain tool calls.')
     else:
         messages = [
             {'role': 'system', 'content': 'Write the requested content using only the supplied facts. You cannot see images or watch videos. Never invent names, prices, offers or contact details. Use visible [placeholders] for missing facts. Return only the requested draft, without commentary.'},
@@ -72,6 +76,11 @@ def writing_body(request):
         body['seed'] = request['seed']
     if contract['chat_template_kwargs']:
         body['chat_template_kwargs'] = contract['chat_template_kwargs'].copy()
+    if request.get('tools_enabled'):
+        if profile['package']!='qwen38-mxfp4':
+            raise ValueError('Project tools require the corrected Qwen3.8 MXFP4 + DFlash2 runtime.')
+        from .project_tools import definitions
+        body.update(tools=definitions(), tool_choice='auto', parallel_tool_calls=False)
     # These release contracts have not qualified constrained-decoding JSON. The
     # planner asks for JSON in text and validates it before consuming any output.
     if profile['package']=='gptoss':

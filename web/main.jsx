@@ -315,7 +315,7 @@ function App() {
           api("/projects"),
           api("/tools"),
           api("/settings"),
-          api("/status"),
+          api("/status?compact=true"),
         ]);
       if (!alive) return;
       setProjects(ps);
@@ -359,7 +359,7 @@ function App() {
       clearTimeout(timer);
       running = true;
       try {
-        const s = await api("/status");
+        const s = await api("/status?compact=true");
         if (!alive) return;
         setStatus(s);
         setConnectionError("");
@@ -1210,6 +1210,7 @@ function App() {
           )}
           {route === "agents" && project && (
             <AgentsStudio
+              defaultConversationOptions={settings.conversation}
               initialIntent={
                 agentIntent?.project === project.id ? agentIntent : null
               }
@@ -1232,6 +1233,7 @@ function App() {
               initialIntent={chatIntent}
               defaultProfile={settings.defaults?.chat || "auto"}
               defaultCodeProfile={settings.defaults?.code || "auto"}
+              defaultConversationOptions={settings.conversation}
               project={project}
               api={api}
               tools={tools}
@@ -2234,6 +2236,7 @@ function App() {
                         appearance: value.appearance,
                         generation: value.generation,
                         performance: value.performance,
+                        conversation: value.conversation,
                       },
                       "PUT",
                     ),
@@ -2357,7 +2360,7 @@ function App() {
                       disabled={j.state === "cancelling"}
                       onClick={guarded(async () => {
                         await api("/jobs/" + j.id + "/cancel", {});
-                        setStatus(await api("/status"));
+                        setStatus(await api("/status?compact=true"));
                       })}
                     >
                       <Square size={13} />
@@ -2369,7 +2372,7 @@ function App() {
                       <button
                         onClick={guarded(async () => {
                           await api("/jobs/" + j.id + "/retry", {});
-                          setStatus(await api("/status"));
+                          setStatus(await api("/status?compact=true"));
                         })}
                       >
                         <RefreshCw size={13} />
@@ -2393,7 +2396,7 @@ function App() {
                       onClick={guarded(async () => {
                         await api("/jobs/" + j.id + "/recover", {});
                         await refreshAssets();
-                        setStatus(await api("/status"));
+                        setStatus(await api("/status?compact=true"));
                       })}
                     >
                       Recover saved output

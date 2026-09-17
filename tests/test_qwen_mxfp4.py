@@ -127,7 +127,7 @@ class Manager:
         self.root = root; self.fail = fail; self.downloads = []; self.commands = []; self.configured = None
     def run(self, args, job):
         self.commands.append(args)
-        return SimpleNamespace(returncode=0, stdout=inspected())
+        return SimpleNamespace(returncode=0, stdout=inspected(args[-1].split("@")[1] if "@sha256:" in args[-1] else release.IMAGE_ID))
     def update(self, *args, **kwargs): pass
     def download(self, url, path, size, digest, job):
         assert self.configured is None
@@ -157,7 +157,8 @@ def test_failed_draft_verification_does_not_register_half_a_package(tmp_path):
 
 def test_new_model_reuses_runtime_between_writing_and_website_without_context_leak(qwen_runtime):
     state = qwen_runtime
-    state.runtime.config.update(qwen38_mxfp4_image='pinned-qwen-image', qwen38_mxfp4_cache_volume='verified-cache')
+    state.runtime.config.update(qwen38_mxfp4_image=release.IMAGE, qwen38_mxfp4_cache_volume='verified-cache')
+    state.runtime.preflight=lambda request: release.IMAGE
     first = state.store.create_project('First')['id']; second = state.store.create_project('Second')['id']
     for project, suffix, extra in [(first, 'writing', {'prompt': 'PRIVATE-FIRST-BRIEF'}),
                                   (second, 'website', {'messages': [{'role': 'user', 'content': 'SECOND-PUBLIC-SITE'}]}),
