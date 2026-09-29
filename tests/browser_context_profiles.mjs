@@ -1,5 +1,5 @@
 // Real isolated Studio API and UI. Does not mock model output or start inference.
-import { chromium } from "playwright";
+import { chromium } from "./browser_support.mjs";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 const url = process.env.STUDIO_URL;
@@ -46,7 +46,15 @@ try {
     projects[0].id,
   );
   await page.reload();
-  const controls = page.locator(".gpt-context .conversation-controls");
+  // The memory controls live inside the collapsed Reply setup panel.
+  const openSetup = async () => {
+    const setup = page.locator(".chat-reply-setup");
+    await setup.waitFor();
+    if (!(await setup.evaluate((node) => node.open)))
+      await setup.locator("> summary").click();
+  };
+  await openSetup();
+  const controls = page.locator(".chat-reply-setup .conversation-controls");
   await controls.waitFor();
   const longer = controls
     .locator("label")
@@ -63,6 +71,7 @@ try {
   await cache.check();
   await page.waitForTimeout(800);
   await page.reload();
+  await openSetup();
   await controls.waitFor();
   assert.ok(await longer.isChecked());
   assert.ok(await cache.isChecked());
@@ -73,12 +82,17 @@ try {
     .locator("label")
     .filter({ has: page.getByText("Extra-long context", { exact: true }) })
     .locator("input");
-  assert.ok(await extra.isDisabled());
-  await cache.uncheck();
-  await page.waitForTimeout(500);
+  assert.ok(
+    await extra.isEnabled(),
+    "The unified runtime permits Extra-long while cache reuse is selected.",
+  );
   await extra.check();
   await page.waitForTimeout(500);
   assert.ok(await cache.isDisabled());
+  assert.ok(
+    await cache.isChecked(),
+    "Extra-long locks on the runtime's required cache reuse.",
+  );
   await extra.uncheck();
   await page.waitForTimeout(500);
   await cache.check();
@@ -116,10 +130,11 @@ try {
     await api("/jobs/" + job.id + "/cancel", {});
   }
   await page.reload();
+  await openSetup();
   await controls.waitFor();
   assert.equal(await longer.isChecked(), false);
   assert.ok(await cache.isDisabled());
-  await page.goto(url + "/#settings");
+  await page.goto(url + "/#model-defaults");
   await page
     .getByRole("heading", { name: "Chat & coding memory", exact: true })
     .waitFor();
@@ -129,7 +144,7 @@ try {
   });
   await page.goto(url + "/#agents");
   await page.getByRole("button", { name: /New agent/ }).click();
-  await page.getByRole("button", { name: /Project coding partner/ }).click();
+  await page.getByLabel("Starting role").selectOption("code");
   await page
     .getByText("Conversation memory · Qwen3.8", { exact: true })
     .click();
@@ -139,6 +154,7 @@ try {
   });
   await page.setViewportSize({ width: 1366, height: 768 });
   await page.goto(url + "/#chat");
+  await openSetup();
   await controls.waitFor();
   assert.ok(
     await page.evaluate(

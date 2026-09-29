@@ -1,5 +1,5 @@
 // Intercepted browser fixtures. No GPU work, downloads or live project mutations.
-import { chromium } from "playwright";
+import { chromium } from "./browser_support.mjs";
 import assert from "node:assert/strict";
 const browser = await chromium.launch({
   headless: true,
@@ -107,6 +107,10 @@ await page.route("**/api/**", async (route) => {
       generation: { seed: 771 },
       storage: {},
     };
+  else if (p === "/api/meetings/readiness") data = { ready: false };
+  else if (p === `/api/projects/${project.id}/brief`)
+    data = { content: "", revision: 0 };
+  else if (p === "/api/inbox") data = { events: [], unread_count: 0 };
   else if (p === "/api/tools") data = tools;
   else if (p === "/api/status")
     data = {
@@ -137,7 +141,10 @@ await page.route("**/api/**", async (route) => {
       message: "Reasoning locally.",
       created: Date.now() / 1000 - 90,
       updated: Date.now() / 1000,
-      request: { profile: { id: "gptoss-chat", model: "GPT-OSS-20B" } },
+      request: {
+        task: "write",
+        profile: { id: "gptoss-chat", model: "GPT-OSS-20B" },
+      },
     };
     chat.turns = [
       {
@@ -162,16 +169,21 @@ await page.route("**/api/**", async (route) => {
   });
 });
 try {
-  await page.goto(process.env.STUDIO_TEST_URL || "http://127.0.0.1:8897");
-  await page.getByRole("button", { name: "GPT", exact: true }).click();
-  await page.getByRole("heading", { name: /Think deeper/ }).waitFor();
-  await page.getByLabel("Message GPTPaiton").fill("Explain local models.");
+  await page.goto(process.env.STUDIO_TEST_URL);
+  await page.evaluate(() => {
+    location.hash = "chat";
+  });
+  await page.getByRole("heading", { name: "Chat", exact: true }).waitFor();
+  await page.locator(".chat-context-details > summary").click();
+  await page.getByLabel("Message Chat").fill("Explain local models.");
   await page.getByLabel("Reasoning effort").selectOption("medium");
   await page.getByRole("button", { name: "Send message", exact: true }).click();
   await page.getByText("Real-delta UI fixture", { exact: true }).waitFor();
-  await page
-    .getByText("There is no other ready, compatible model for this task yet.")
-    .waitFor();
+  await page.getByRole("button", { name: "Stop", exact: true }).waitFor();
+  assert.equal(
+    await page.locator(".gpt-stage").innerText(),
+    "Writing your draft",
+  );
   assert.equal(sent.length, 1);
   assert.equal(sent[0].reasoning_effort, "medium");
   assert.match(sent[0].client_id, /^[a-f0-9]{32}$/);
@@ -213,8 +225,11 @@ try {
       body: '<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40"><rect width="40" height="40" fill="yellow"/></svg>',
     }),
   );
-  await page.getByText(/Done — your image is saved/).waitFor();
-  await page.getByRole("button", { name: "Video", exact: true }).click();
+  await page.reload();
+  await page.getByText(/Created locally · saved in your project/).waitFor();
+  await page.evaluate(() => {
+    location.hash = "video";
+  });
   await page.waitForTimeout(150);
   const stoppedPresence = presence;
   assert.ok(stoppedPresence >= 2);

@@ -73,7 +73,7 @@ def test_candidate_is_disabled_and_has_only_a_manual_short_draft_contract():
 def test_consumer_tools_omit_unreleased_candidates_but_keep_incompatible_installed_models(tmp_path,monkeypatch):
     from fastapi.testclient import TestClient
     from studio.app import create_app
-    monkeypatch.setattr(Runtime,'preflight',lambda *args:'synthetic-installed-image')
+    monkeypatch.setattr(Runtime,'preflight',lambda *args, verify_content=True:'synthetic-installed-image')
     monkeypatch.setattr('studio.app.gpu_status',lambda:dict(driver_available=True,supported=True,
         gpu_count=1,name='AMD Radeon RX 9070 XT',architecture='gfx1201',total=16*1024**3))
     monkeypatch.setattr('studio.setup.SetupManager._system',lambda *args:pytest.fail('Rejected packages must not probe the host'))
@@ -83,7 +83,7 @@ def test_consumer_tools_omit_unreleased_candidates_but_keep_incompatible_install
         rejected=client.post('/api/setup/qwen3-4b/install')
     assert response.status_code==200
     tools=response.json()
-    assert {item['id'] for item in tools}=={'minicpm5-2b','flux','h3','qwen-coder','qwen38','qwen38-mxfp4','gptoss','wan','fastwan'}
+    assert {item['id'] for item in tools}=={'qwen-image21','qwen-image21-uncensored','minicpm5-2b','flux','h3','qwen-coder','qwen38','qwen38-mxfp4','gptoss','wan','fastwan'}
     assert all(item['integrated'] and item['installed'] and item['state']=='incompatible' for item in tools)
     assert rejected.status_code==400
     assert rejected.json()['error']=='Choose a supported local model package.'
@@ -117,6 +117,7 @@ def test_hashing_is_cached_for_status_and_execution_but_invalidates_on_mutation(
     assert len(probes)==1 and '--device' not in probes[0]
     assert probes[0][probes[0].index('--network')+1]=='none'
     assert '--read-only' in probes[0] and '--pull=never' in probes[0]
+    assert probes[0][probes[0].index('--cap-drop')+1] == 'ALL' and probes[0][probes[0].index('--security-opt')+1] == 'no-new-privileges'
     assert 'installed_check' in probes[0][-1]
     weight=directory/'model.safetensors';before=weight.stat()
     weight.write_bytes(b'x'*before.st_size)

@@ -6,17 +6,50 @@ adapter after their launch contract and profiles have been qualified.
 """
 from copy import deepcopy
 from .qwen_mxfp4 import REVISION as MXFP4_REVISION
+from .qwen_image21 import REVISION as IMAGE21_REVISION, UNCENSORED_REVISION as IMAGE21_UNCENSORED_REVISION
 
 SCHEMA_VERSION = 1
 ADAPTERS = {
+    'paiton-qwen-image21': {'tasks': ['image'], 'capabilities': ['image.generate', 'image.edit']},
     'paiton-flux': {'tasks': ['image'], 'capabilities': ['image.generate']},
     'paiton-h3': {'tasks': ['video'], 'capabilities': ['video.animate_image', 'video.generate', 'audio.video_soundtrack']},
     'paiton-wan': {'tasks': ['video'], 'capabilities': ['video.generate','video.animate_image']},
     'paiton-chat': {'tasks': ['write'], 'capabilities': ['text.generate', 'text.plan_site', 'text.chat', 'text.code']},
 }
-ROLE_TASKS = {'image': 'image', 'video': 'video', 'write': 'write', 'website': 'write', 'chat':'write', 'code':'write', 'video_text':'video'}
-ROLE_CAPABILITIES = {'image': 'image.generate', 'video': 'video.animate_image', 'write': 'text.generate', 'website': 'text.plan_site', 'chat':'text.chat', 'code':'text.code', 'video_text':'video.generate'}
+ROLE_TASKS = {'image': 'image', 'image_edit': 'image', 'video': 'video', 'write': 'write', 'website': 'write', 'chat':'write', 'code':'write', 'video_text':'video'}
+ROLE_CAPABILITIES = {'image': 'image.generate', 'image_edit': 'image.edit', 'video': 'video.animate_image', 'write': 'text.generate', 'website': 'text.plan_site', 'chat':'text.chat', 'code':'text.code', 'video_text':'video.generate'}
 PACKAGES = [
+    dict(id='qwen-image21', name='High-detail images', model='Qwen-Image-2.1 MXFP4 · Paiton',
+         revision=IMAGE21_REVISION, integrated=True, adapter='paiton-qwen-image21',
+         default_for=['image', 'image_edit'], tasks=['image'], capabilities=['image.generate', 'image.edit'], vram_gib=28.34,
+         license='Qwen model license; distributed runtime notices apply',
+         quality_note='Recommended for high-detail 2048 × 2048 images. Uses the full 40-step exact-quality mode. Also offers transparent PNGs and smaller 1024 × 1024 images.',
+         preparation_note='Requires a 32 GB Radeon AI PRO R9700 and 30 GiB free GPU memory at launch. The first request verifies and loads the model. Loading is separate from generation.',
+         profiles=[dict(id='qwen-image21-'+suffix, label=label, task='image', roles=['image'],
+                        width=size, height=size, steps=40, guidance=1.0, batch=1, mode=mode, max_prompt_length=512)
+                   for suffix,label,size,mode in [
+                       ('2048','High quality · 2048 × 2048',2048,'text-to-image'),
+                       ('1024','Draft / Preview · 1024 × 1024',1024,'text-to-image'),
+                       ('rgba-1024','Transparent artwork · 1024 × 1024',1024,'rgba'),
+                       ('rgba-2048','High-quality transparent artwork · 2048 × 2048',2048,'rgba')]] +
+                  [dict(id='qwen-image21-edit', label='Edit an image · 1024 × 1024', task='image', roles=['image_edit'],
+                        width=1024, height=1024, steps=40, guidance=1.0, batch=1, mode='edit', max_prompt_length=512)]),
+    dict(id='qwen-image21-uncensored', name='Uncensored images', model='Qwen-Image-2.1 Uncensored MXFP4 · Paiton',
+         revision=IMAGE21_UNCENSORED_REVISION, integrated=True, adapter='paiton-qwen-image21',
+         default_for=[], requires_explicit_selection=True, checkpoint_variant='uncensored', qualified=False,
+         tasks=['image'], capabilities=['image.generate', 'image.edit'], vram_gib=None,
+         license='Qwen model license; distributed runtime notices apply',
+         quality_note='Optional uncensored checkpoint with full 40-step exact quality, images up to 2048 × 2048, transparent PNGs and 1024 × 1024 editing.',
+         preparation_note='Select this model explicitly. The shared runtime loads one checkpoint at a time and requires a 32 GB Radeon AI PRO R9700 with 30 GiB free at launch. Its weights are separate from the original model.',
+         profiles=[dict(id='qwen-image21-uncensored-'+suffix, label=label, task='image', roles=[role],
+                        width=size, height=size, steps=40, guidance=1.0, batch=1, mode=mode, max_prompt_length=512,
+                        requires_explicit_selection=True, checkpoint_variant='uncensored')
+                   for suffix,label,size,mode,role in [
+                       ('2048','High quality · 2048 × 2048',2048,'text-to-image','image'),
+                       ('1024','Draft / Preview · 1024 × 1024',1024,'text-to-image','image'),
+                       ('rgba','Transparent artwork · 1024 × 1024',1024,'rgba','image'),
+                       ('rgba-2048','High-quality transparent artwork · 2048 × 2048',2048,'rgba','image'),
+                       ('edit','Edit an image · 1024 × 1024',1024,'edit','image_edit')]]),
     dict(id='qwen38-mxfp4', name='Fast writing, websites & chat', model='Qwen3.8 27B MXFP4 + DFlash2 · Paiton',
          revision=MXFP4_REVISION, integrated=True, adapter='paiton-chat',
          default_for=['write', 'website', 'chat', 'code'], tasks=['write'],
@@ -38,7 +71,7 @@ PACKAGES = [
                         roles=['chat','code'], context=8192, max_tokens=1024)]),
     dict(id='flux', name='Image tool', model='FLUX.2 klein 4B · Paiton', revision='45e9cc76cb70f84473ce5c6c2e2282d0ef3c6ecd', integrated=True, adapter='paiton-flux', default_for=['image'], tasks=['image'], capabilities=['image.generate'], vram_gib=14.6, license='Apache-2.0 runtime; see upstream quantization provenance notices', profiles=[dict(id='image-standard', label='Square · 1024 × 1024', task='image', roles=['image'], width=1024, height=1024, steps=4, guidance=1.0, batch=1)]),
     dict(id='h3', name='Video tool', model='MiniMax H3 W4A8 · Paiton', revision='42ed227ee7df40d41602854ae760620d6eb651fe', integrated=True, adapter='paiton-h3', default_for=['video'], tasks=['video'], capabilities=['video.animate_image', 'video.generate', 'audio.video_soundtrack'], vram_gib=30.34, license='MiniMax community terms; ComfyUI GPL-3.0', profiles=[dict(id='video-short', label='Short scene · 5.17 seconds', task='video', roles=['video'], width=864, height=480, frames=124, fps=24, steps=8, preset='turbo8', audio=True),dict(id='video-fast', label='Faster · 5.17 seconds · less detail', task='video', roles=['video'], width=864, height=480, frames=124, fps=24, steps=4, preset='turbo4', audio=True),dict(id='video-long', label='Long scene · 15.08 seconds', task='video', roles=['video'], width=864, height=480, frames=362, fps=24, steps=8, preset='turbo8', audio=True)]),
-    dict(id='qwen-coder', name='Writing & website tool', model='Qwen3-Coder 30B A3B AWQ · Paiton', revision='4bd30395b72ea6045edd04806c4fea448d4467b3', integrated=True, adapter='paiton-chat', default_for=[], tasks=['write'], capabilities=['text.generate', 'text.plan_site'], vram_gib=20.1, license='Apache-2.0; upstream revision provenance limitation', profiles=[dict(id='writing-standard', label='Quick local draft · up to 1024 tokens', task='write', roles=['write'], context=4096, max_tokens=1024),dict(id='writing-website', label='Website plan · up to 2048 tokens', task='write', roles=['website'], context=4096, max_tokens=2048)]),
+    dict(id='qwen-coder', name='Code-savvy writing tool', model='Qwen3-Coder 30B A3B AWQ · Paiton', revision='4bd30395b72ea6045edd04806c4fea448d4467b3', integrated=True, adapter='paiton-chat', default_for=[], tasks=['write'], capabilities=['text.generate', 'text.plan_site'], vram_gib=20.1, license='Apache-2.0; upstream revision provenance limitation', profiles=[dict(id='writing-standard', label='Quick local draft · up to 1024 tokens', task='write', roles=['write'], context=4096, max_tokens=1024),dict(id='writing-website', label='Website plan · up to 2048 tokens', task='write', roles=['website'], context=4096, max_tokens=2048)]),
     dict(id='qwen38', name='Writing & website tool', model='Qwen3.8 27B Qronos · Paiton', revision='649ca9d47a7de5364c6fcccc0c1b4f6e542e15e2', integrated=True, adapter='paiton-chat', default_for=['write', 'website'], tasks=['write'], capabilities=['text.generate', 'text.plan_site'], vram_gib=None, license='Apache-2.0 AND MIT runtime; see installed package notices', preparation_note='The release reports about 10–12 minutes for a cold model load. Studio reports loading until the runtime is ready. Follow-up writing and website plans reuse the ready model until it expires or another tool needs the GPU.', profiles=[dict(id='qwen38-writing', label='Longer local draft · up to 2048 tokens', task='write', roles=['write'], context=8192, max_tokens=2048),dict(id='qwen38-website', label='Website plan · up to 3500 tokens', task='write', roles=['website'], context=8192, max_tokens=3500)]),
     dict(id='qwen3-4b', name='Short-draft writing tool', model='Qwen3-4B Instruct 2507 BF16 · Paiton', revision='cdbee75f17c01a7cc42f958dc650907174af0554', integrated=False, adapter='paiton-chat', default_for=[], tasks=['write'], capabilities=['text.generate'], vram_gib=None, license='Apache-2.0 checkpoint and plugin; runtime notices apply', quality_note='Experimental and unavailable: this candidate failed factual writing checks. It has not been qualified for Studio writing or website planning.', preparation_note='The local checkpoint is verified before loading. Your request stays queued while the model prepares.', profiles=[dict(id='qwen3-4b-short', label='Short first draft · up to 512 tokens', task='write', roles=['write'], context=8192, max_tokens=512, quality_note='Experimental and unavailable: this candidate failed factual writing checks. It has not been qualified for Studio writing or website planning.')]),
     dict(id='ornith', name='Alternative writing tool', model='Ornith 1.5 35B A3B MXFP4 · Paiton', revision='9e488f46c0f7969f84c9923ee0256311cd50316e', integrated=False, adapter=None, default_for=[], tasks=['write'], capabilities=['text.generate'], vram_gib=None, license='See installed package notices', profiles=[]),
@@ -53,10 +86,18 @@ for _package in PACKAGES:
 # These are admission floors derived from retained driver-memory peaks, not
 # claims of qualification on smaller boards. Device qualification is separate.
 HARDWARE = {
+    'qwen-image21': dict(supported_architectures=['gfx1201'], required_device_names=['AMD Radeon AI PRO R9700'],
+                         required_vram_gib=32, minimum_reported_vram_gib=31,
+                         qualification='Qualified on a 32 GB Radeon AI PRO R9700. Other GPUs are not yet qualified.',
+                         memory_basis='The packaged launcher requires at least 30 GiB free GPU memory before loading.'),
+    'qwen-image21-uncensored': dict(supported_architectures=['gfx1201'], required_device_names=['AMD Radeon AI PRO R9700'],
+                         required_vram_gib=32, minimum_reported_vram_gib=31,
+                         qualification='This packaged runtime targets Radeon AI PRO R9700. This checkpoint has MI355 conversion checks; R9700 execution and quality testing are pending.',
+                         memory_basis='The shared launcher requires at least 30 GiB free before loading. Original-model timing and memory measurements do not qualify this checkpoint.'),
     'qwen38-mxfp4': dict(supported_architectures=['gfx1201'], required_device_names=['AMD Radeon AI PRO R9700'],
                          required_vram_gib=32, minimum_reported_vram_gib=31,
                          qualification='Published MXFP4 + DFlash2 release qualified on one 32 GB Radeon AI PRO R9700. Other GPUs are not yet qualified.',
-                         memory_basis='Target, draft and fixed 5 GiB KV cache use the published 32 GB hardware profile.'),
+                         memory_basis='Target, draft and the selected KV cache use the published 32 GB hardware profile. W3A4 uses KV4 for short and 64K requests; prefix caching and 200K use the 8 GiB FP8 profile. Aggregate cache capacity is separate from each request’s context limit.'),
     'minicpm5-2b': dict(supported_architectures=['gfx1201'], required_device_names=['AMD Radeon AI PRO R9700'],
                       required_vram_gib=8, minimum_reported_vram_gib=8,
                       qualification='Qualified on one 32 GB Radeon AI PRO R9700. Other GPUs have not been tested.',
@@ -72,6 +113,11 @@ HARDWARE = {
 }
 for _model in PACKAGES:
     _model['hardware'] = deepcopy(HARDWARE.get(_model['id'], _model.get('hardware', {})))
+    # Readiness (installed + compatible) is separate from qualification: a
+    # package whose hardware note says testing is pending stays selectable but
+    # is labelled as not yet qualified (testing pending). The flag is static
+    # package knowledge, not a verdict about the detected GPU.
+    _model.setdefault('qualified', True)
 
 
 def compatibility(selection, gpu):
@@ -145,9 +191,16 @@ def validate_snapshot(snapshot, task=None):
             continue
         if key == 'roles' and isinstance(snapshot.get(key), list) and all(isinstance(role,str) and role in value for role in snapshot[key]):
             continue  # Adding a task role does not change an existing render's settings.
+        if (key == 'capabilities' and canonical['package'] == 'qwen-image21'
+                and snapshot.get(key) == ['image.generate'] and value == ['image.generate', 'image.edit']):
+            continue  # Existing generation requests predate the image-edit capability.
         if key in metadata and key not in snapshot:
             continue
-        if snapshot.get(key) != value:
+        saved = snapshot.get(key)
+        if key == 'conversation_options' and isinstance(saved, dict):
+            from .conversation_options import ConversationOptions
+            saved = ConversationOptions.model_validate(saved).model_dump()
+        if saved != value:
             raise ValueError('The saved profile no longer matches an installed release. Select a compatible model again.')
     if set(snapshot) - set(canonical):
         raise ValueError('The saved profile contains unsupported settings.')

@@ -16,7 +16,7 @@ from studio.websites import Websites, WebsiteInput, export_website
 
 @pytest.fixture
 def workflow(tmp_path, monkeypatch):
-    monkeypatch.setattr(Runtime, 'preflight', lambda self, request: 'installed-test-package')
+    monkeypatch.setattr(Runtime, 'preflight', lambda self, request, *, verify_content=True: 'installed-test-package')
     store = Store(tmp_path)
     runtime = Runtime(store, {})
     worker = Worker(store, runtime)
@@ -171,5 +171,5 @@ def test_website_child_retry_cannot_become_an_orphan_job(tmp_path):
     with TestClient(app) as client:
         client.headers['X-Studio-Token'] = client.get('/api/session').json()['token']
         response = client.post('/api/jobs/'+job['id']+'/retry', json={})
-        assert response.status_code == 400 and 'Build Page' in response.json()['error']
+        assert response.status_code == 400 and 'Build Website' in response.json()['error']
         assert len(store.rows('SELECT id FROM jobs')) == 1

@@ -1,0 +1,47 @@
+.optional-weights {
+  margin-top: 16px;
+  padding: 14px;
+  border: 1px solid var(--studio-border, var(--border));
+  border-radius: 10px;
+  background: var(--studio-surface-raised, transparent);
+  min-width: 0;
+}
+.optional-weights h4 {
+  margin: 0;
+  font-size: 14px;
+}
+.optional-weights .section-heading {
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.optional-weights .helper {
+  overflow-wrap: anywhere;
+}
+.optional-weights-license {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 14px;
+  font-size: 12px;
+}
+.optional-weights-license a {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.optional-weights .conversation-option {
+  margin: 12px 0;
+}
+.optional-weights-progress {
+  display: grid;
+  gap: 8px;
+}
+.optional-weights-progress p {
+  margin: 0;
+}
+.optional-weights-progress progress {
+  width: 100%;
+}
+.optional-weights-progress button {
+  justify-self: start;
+}

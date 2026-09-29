@@ -45,6 +45,9 @@ export default function WebsiteNotifications({
   onReview,
   onQueue,
   report,
+  embedded = false,
+  onPending,
+  onClose,
 }) {
   const [records, setRecords] = useState(readSaved);
   const [started, setStarted] = useState(null);
@@ -173,6 +176,9 @@ export default function WebsiteNotifications({
   const completed = Object.values(records)
     .filter((r) => r.state === "completed" && !r.acknowledged)
     .sort((a, b) => a.finished - b.finished);
+  useEffect(() => {
+    onPending?.(completed.length);
+  }, [completed.length, onPending]);
   const design = completed[0];
   const initial = started && records[started]?.state === "watching";
   const kind = (design || records[started])?.kind;
@@ -185,14 +191,18 @@ export default function WebsiteNotifications({
         : `${design?.pages} pages`;
   const finishedTitle = refinement
     ? "Website update finished"
-    : "Design finished";
+    : "Website ready";
   function dismiss(id) {
     change((old) => ({ ...old, [id]: { ...old[id], acknowledged: true } }));
   }
   if (!enabled || (!design && !initial)) return null;
   return (
     <aside
-      className={"website-feedback " + (design ? "finished" : "accepted")}
+      className={
+        "website-feedback " +
+        (design ? "finished" : "accepted") +
+        (embedded ? " embedded" : "")
+      }
       aria-label={
         design
           ? finishedTitle
@@ -207,7 +217,10 @@ export default function WebsiteNotifications({
         </span>
         <button
           aria-label="Dismiss website notification"
-          onClick={() => (design ? dismiss(design.id) : setStarted(null))}
+          onClick={() => {
+            design ? dismiss(design.id) : setStarted(null);
+            onClose?.();
+          }}
         >
           <X size={18} />
         </button>
@@ -265,7 +278,14 @@ export default function WebsiteNotifications({
             </p>
           </details>
           <div className="feedback-actions">
-            <button onClick={() => dismiss(design.id)}>Later</button>
+            <button
+              onClick={() => {
+                dismiss(design.id);
+                onClose?.();
+              }}
+            >
+              Later
+            </button>
             <button
               className="primary"
               disabled={opening}
@@ -321,7 +341,13 @@ export default function WebsiteNotifications({
             >
               Open queue
             </button>
-            <button className="primary" onClick={() => setStarted(null)}>
+            <button
+              className="primary"
+              onClick={() => {
+                setStarted(null);
+                onClose?.();
+              }}
+            >
               Continue browsing <Check size={16} />
             </button>
           </div>

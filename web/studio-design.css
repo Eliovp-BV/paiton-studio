@@ -1420,6 +1420,17 @@ main {
   background: #292a1f;
   border-color: #c5c8b322;
 }
+.queue-job.queue-job-focused {
+  border-color: var(--studio-border-active);
+  box-shadow: 0 0 0 1px var(--studio-border-active);
+  scroll-margin: 20px;
+}
+.queue-opened-marker {
+  display: block;
+  color: var(--accent);
+  margin-bottom: 10px;
+  font-size: 11px;
+}
 .startup {
   background: radial-gradient(ellipse, #28413833, transparent), #10100c;
 }
@@ -3600,7 +3611,7 @@ main {
 .mcp-flow span svg {color:var(--studio-lime);}
 .mcp-intro {max-width:85ch;color:var(--studio-text-muted);line-height:1.7;margin:20px 0 30px;}
 .mcp-layout {display:grid;grid-template-columns:minmax(0,1.4fr) minmax(280px,.8fr);gap:24px;}
-.mcp-primary,.mcp-capabilities,.mcp-smtp {padding:26px;min-width:0;}
+.mcp-primary,.mcp-capabilities {padding:26px;min-width:0;}
 .mcp-connections h2 {margin:8px 0 22px;}
 .mcp-client-config {border-top:1px solid var(--studio-border);padding-top:20px;margin-top:26px;}
 .mcp-client-config pre {white-space:pre-wrap;overflow-wrap:anywhere;background:#10110c;padding:18px;font-size:.8rem;}
@@ -3608,18 +3619,10 @@ main {
 .mcp-privacy {display:flex;align-items:flex-start;gap:12px;margin:24px 0;color:var(--studio-lime);}
 .mcp-privacy svg {flex-shrink:0;}
 .mcp-privacy p {margin:0;color:var(--studio-text-muted);line-height:1.7;}
-.mcp-smtp {margin-top:24px;}
-.mcp-smtp>div:first-child>p {max-width:82ch;color:var(--studio-text-muted);line-height:1.7;}
-.mcp-fields {display:grid;grid-template-columns:2fr 1fr 1fr;gap:16px;}
 .mcp-connections details {margin:20px 0;}
 .mcp-connections summary {cursor:pointer;font-size:.9rem;}
-.mcp-smtp form {padding-top:20px;}
-.mcp-future {display:flex;gap:25px;font-size:.85rem;color:var(--studio-text-muted);margin-top:25px;border-top:1px solid var(--studio-border);padding-top:20px;}
-.mcp-success {display:flex;gap:10px;align-items:center;color:var(--studio-lime);padding:14px 0;}
-.mcp-legal {font-size:.8rem;color:var(--studio-text-muted);}
-.mcp-legal a {color:var(--studio-lime);}
-@media(max-width:1000px){.mcp-layout{grid-template-columns:1fr;}.mcp-fields{grid-template-columns:1fr 1fr;}}
-@media(max-width:600px){.mcp-flow{gap:12px;flex-wrap:wrap;}.mcp-flow span{font-size:.8rem;}.mcp-fields{grid-template-columns:1fr;}.mcp-primary,.mcp-capabilities,.mcp-smtp{padding:18px;}.mcp-future{flex-wrap:wrap;}}
+@media(max-width:1000px){.mcp-layout{grid-template-columns:1fr;}}
+@media(max-width:600px){.mcp-flow{gap:12px;flex-wrap:wrap;}.mcp-flow span{font-size:.8rem;}.mcp-primary,.mcp-capabilities{padding:18px;}}
 .mcp-layout {align-items:start;}
 .mcp-state:not(.on) .status-dot {background:var(--studio-text-muted);box-shadow:none;animation:none;}
 

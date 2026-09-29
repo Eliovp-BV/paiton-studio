@@ -24,12 +24,14 @@ def test_released_contracts_match_target_drafter_and_cache(mode,apc,ceiling):
     launch=engine_profile(p['conversation_options']); args=launch['arguments']
     assert int(args[args.index('--max-model-len')+1])==ceiling
     assert json.loads(args[args.index('--speculative-config')+1])['max_model_len']==ceiling
-    assert args[args.index('--tool-call-parser')+1]=='qwen3_xml'
+    assert args[args.index('--tool-call-parser')+1]=='qwen3_coder'
     assert args[args.index('--max-num-seqs')+1]=='1'
-    assert args[args.index('--max-num-batched-tokens')+1]=='4096'
-    assert ('--enable-prefix-caching' in args)==apc
-    assert args[args.index('--mamba-cache-mode')+1]==('align' if apc else 'none')
-    assert launch['environment']['PAITON_EXPERIMENTAL_GDN_PREFILL']==('0' if apc else '1')
+    assert args[args.index('--max-num-batched-tokens')+1]==('1024' if apc or mode=='extra_long' else '4096')
+    assert ('--enable-prefix-caching' in args)==(apc or mode=='extra_long')
+    assert args[args.index('--mamba-cache-mode')+1]=='align'
+    assert launch['environment']['PAITON_W3_A4']=='0'
+    assert launch['environment']['PAITON_KV4']==launch['environment']['PAITON_KV4_CAPACITY']=='0'
+    assert 'PAITON_EXPERIMENTAL_GDN_PREFILL' not in launch['environment']
     assert image_for(p)==IMAGES['200k' if mode=='extra_long' else '64k']
     tampered=deepcopy(p);tampered['context']+=1
     with pytest.raises(ValueError):validate_snapshot(tampered)
@@ -55,9 +57,7 @@ def test_long_context_cannot_silently_fall_back_to_small_model(tmp_path,monkeypa
 def test_warm_identity_separates_same_image_profiles_and_sources(tmp_path):
     runtime=Runtime(Store(tmp_path),{'qwen38_mxfp4_cache_volume':'pinned-cache'})
     p=apply_options(profile('qwen38-mxfp4-chat','write'),{})
-    import time
-    sources=runtime.chat_source(p['package'],p['revision'])[0]
-    runtime._warm=dict(container='owned',image=image_for(p),package=p['package'],revision=p['revision'],until=time.monotonic()+60,launch_identity=launch_identity(p,sources))
+    runtime._remember_warm({'profile':p},image_for(p),'owned')
     assert runtime.warm_for({'profile':p})
     for option in ({'context_mode':'long'},{'context_mode':'long','reuse_cache':True},{'context_mode':'extra_long'}):
         assert not runtime.warm_for({'profile':apply_options(p,option)})
@@ -239,6 +239,6 @@ def test_settings_api_preserves_new_options_from_older_tabs(tmp_path):
         r=client.put('/api/settings',json={'conversation':{'context_mode':'long','reuse_cache':True}},headers=headers)
         assert r.status_code==200,r.text
         r=client.put('/api/settings',json={'defaults':{}},headers=headers)
-        assert r.json()['conversation']=={'context_mode':'long','reuse_cache':True}
+        assert r.json()['conversation']=={'context_mode':'long','reuse_cache':True,'weights':'mxfp4'}
         bad=client.put('/api/settings',json={'conversation':{'context_mode':'extra_long','reuse_cache':True}},headers=headers)
         assert bad.status_code==422

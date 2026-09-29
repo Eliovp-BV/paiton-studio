@@ -1,7 +1,7 @@
-import { chromium } from "playwright";
+import { chromium } from "./browser_support.mjs";
 import assert from "node:assert/strict";
 import fs from "node:fs";
-const base = process.env.STUDIO_URL || "http://127.0.0.1:8877";
+const base = process.env.STUDIO_URL;
 const browser = await chromium.launch({
   headless: true,
   executablePath: process.env.STUDIO_CHROMIUM,
@@ -11,7 +11,9 @@ const errors = [];
 page.on("pageerror", (e) => errors.push(e.message));
 try {
   await page.goto(base);
-  await page.getByRole("heading", { name: "Create without limits." }).waitFor();
+  await page
+    .getByRole("heading", { name: "Create without the cloud." })
+    .waitFor();
   const id = await page.evaluate(async () => {
     const token = (await (await fetch("/api/session")).json()).token;
     const p = await (
@@ -29,7 +31,9 @@ try {
     .getByRole("navigation", { name: "Main navigation" })
     .getByRole("button", { name: "Home", exact: true })
     .click();
-  await page.getByRole("heading", { name: "Create without limits." }).waitFor();
+  await page
+    .getByRole("heading", { name: "Create without the cloud." })
+    .waitFor();
   let release, arrived;
   const held = new Promise((r) => (release = r));
   const first = new Promise((r) => (arrived = r));
@@ -64,7 +68,7 @@ try {
   await page.waitForFunction(() =>
     document
       .querySelector(".save-state")
-      ?.textContent.includes("Saved on Studio host"),
+      ?.textContent.includes("Saved on this computer"),
   );
   const saved = await page.evaluate(
     async (identity) => await (await fetch("/api/projects/" + identity)).json(),

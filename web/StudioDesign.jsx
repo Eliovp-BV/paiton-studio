@@ -1,5 +1,4 @@
 import machineArtwork from "./art/local-machine-gold.svg";
-import { MachineStatus } from "./StudioIdentity";
 import React, { useState, useRef, useEffect } from "react";
 import {
   ArrowRight,
@@ -13,7 +12,9 @@ import {
   MoreVertical,
   ShieldCheck,
   Cpu,
+  Code2,
   MessageSquare,
+  AudioLines,
   X,
 } from "lucide-react";
 import { GpuActivity } from "./WorkspaceExtras";
@@ -48,7 +49,13 @@ export function CommandBar({ onLaunch, shortcut = false }) {
       if (!root.current?.contains(e.target)) setOpen(false);
     };
     const launch = (e) => {
-      if (shortcut && (e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") {
+      if (
+        shortcut &&
+        !e.shiftKey &&
+        !e.altKey &&
+        (e.ctrlKey || e.metaKey) &&
+        e.key.toLowerCase() === "k"
+      ) {
         e.preventDefault();
         setOpen(true);
         root.current?.querySelector("input")?.focus();
@@ -98,8 +105,14 @@ export function CommandBar({ onLaunch, shortcut = false }) {
             [
               "chat",
               MessageSquare,
-              "Explore with GPTPaiton",
+              "Start a chat",
               "Think it through, locally.",
+            ],
+            [
+              "coding",
+              Code2,
+              "Write code",
+              "Edit project files and work in VS Code.",
             ],
           ].map(([to, Icon, title, copy]) => (
             <button
@@ -132,6 +145,7 @@ export function HardwarePanel({
   active,
   state,
   chatReady,
+  details = true,
   onDetails,
 }) {
   return (
@@ -156,7 +170,10 @@ export function HardwarePanel({
                 : "Online · Ready"
               : gpu.message || "Checking local hardware"}
       </div>
-      <GpuActivity gpu={gpu} samples={samples} compact details />
+      <details className="engine-readings">
+        <summary>GPU readings</summary>
+        <GpuActivity gpu={gpu} samples={samples} compact details={details} />
+      </details>
       <button className="engine-details" onClick={onDetails}>
         System details <ArrowRight size={13} />
       </button>
@@ -196,6 +213,7 @@ export function HomeWorkspace({
   active,
   onDetails,
   onLaunch,
+  meetingsReady,
 }) {
   // The home shelf leads with saved creative work; drafts remain in Projects.
   const savedWork = projects.filter(
@@ -222,9 +240,8 @@ export function HomeWorkspace({
           <div>
             <h3>Prepare your local creation tools</h3>
             <p>
-              Download the tools you need in Settings. First-time setup can take
-              a while; installed tools remain available while the others
-              download.
+              Download the tools you need in Models. First-time setup can take a
+              while; installed tools remain available while the others download.
             </p>
           </div>
           <button onClick={onSetup}>
@@ -252,10 +269,6 @@ export function HomeWorkspace({
             </span>
           </div>
         </section>
-        <div className="home-idea">
-          <span className="eyebrow">START WITH AN IDEA</span>
-          <CommandBar onLaunch={onLaunch} />
-        </div>
         <div className="home-content">
           <section className="recent-work">
             <div className="creative-actions">
@@ -415,7 +428,6 @@ export function HomeWorkspace({
             </div>
           </section>
           <aside className="creative-journey">
-            <MachineStatus gpu={gpu} active={active} onDetails={onDetails} />
             <blockquote>
               Creativity hits different
               <br />
@@ -431,6 +443,17 @@ export function HomeWorkspace({
                   <ArrowRight size={14} />
                 </button>
               ))}
+              <button
+                className="quick-setup"
+                onClick={() => onNavigate("meetings")}
+              >
+                <AudioLines size={21} />
+                <span>
+                  {meetingsReady === false ? "Set up Meetings" : "Meetings"}
+                  <small>Transcribe and summarize recordings locally.</small>
+                </span>
+                <ArrowRight size={14} />
+              </button>
             </div>
           </aside>
         </div>

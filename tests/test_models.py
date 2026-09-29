@@ -5,15 +5,28 @@ from subprocess import CompletedProcess
 import pytest
 
 from studio.chat_adapters import writing_body
-from studio.registry import compatible_profiles, profile, validate_snapshot
+from studio.registry import PACKAGES, compatible_profiles, profile, validate_snapshot
 from studio.runtime import Runtime, RuntimeFailure
 from studio.store import Store
 from studio.telemetry import gpu_status
 
 
+def test_integrated_packages_have_distinct_outcome_first_names():
+    # The picker renders "<name> · <profile label>", so two selectable packages
+    # sharing a name are indistinguishable, and a name that repeats the model
+    # string pushes the size and quality past the select's truncation.
+    integrated = [package for package in PACKAGES if package.get('integrated')]
+    names = [package['name'] for package in integrated]
+    assert len(names) == len(set(names)), sorted(name for name in names if names.count(name) > 1)
+    for package in integrated:
+        assert package['model'].split()[0].lower() not in package['name'].lower(), (package['id'], package['name'])
+        for entry in package['profiles']:
+            assert not entry['label'].lower().startswith('uncensored'), (entry['id'], entry['label'])
+
+
 def test_roles_only_expose_compatible_model_profiles():
     assert {p['package'] for p in compatible_profiles('video')} == {'h3','wan'}
-    assert {p['package'] for p in compatible_profiles('image')} == {'flux'}
+    assert {p['package'] for p in compatible_profiles('image')} == {'flux','qwen-image21','qwen-image21-uncensored'}
     assert {p['package'] for p in compatible_profiles('write')} == {'qwen38-mxfp4', 'qwen38', 'qwen-coder','gptoss'}
     assert {p['package'] for p in compatible_profiles('website')} == {'qwen38-mxfp4', 'qwen38', 'qwen-coder'}
     assert {p['id'] for p in compatible_profiles('write')}.isdisjoint(p['id'] for p in compatible_profiles('website'))
@@ -33,6 +46,40 @@ def test_persisted_execution_snapshot_rejects_model_and_setting_substitution():
     assert validate_snapshot(old, 'write')['max_tokens'] == 1024
     p['roles'].append('video')
     assert 'video' not in profile('qwen38-writing', 'write')['roles']
+
+
+@pytest.mark.parametrize('mode',['short','long','extra_long'])
+def test_qwen_checkpoint_folders_without_image_setting_still_pin_queued_runtime(tmp_path,monkeypatch,mode):
+    from studio.conversation_options import apply_options,image_for
+    store=Store(tmp_path/'data');project=store.create_project()['id']
+    target=tmp_path/'target';draft=tmp_path/'draft';target.mkdir();draft.mkdir()
+    runtime=Runtime(store,{'qwen38_nvfp4_target_dir':str(target),'qwen38_mxfp4_draft_dir':str(draft)})
+    selected=apply_options(profile('qwen38-mxfp4-writing','write'),{'context_mode':mode})
+    reference=image_for(selected);image_id='sha256:'+'a'*64;calls=[]
+    def inspect(args,**kwargs):
+        calls.append(args)
+        assert args==['image','inspect',reference]
+        return CompletedProcess(args,0,json.dumps([{'Id':image_id,'RepoDigests':[reference]}]),'')
+    monkeypatch.setattr(runtime,'command',inspect)
+    store.prepare_request=runtime.pin_request
+    job=store.enqueue(project,{'task':'write','profile':selected,'prompt':'Synthetic queued draft'})
+    saved=store.job(job['id'])['request']
+    assert saved['runtime_image']==image_id and saved['runtime_ref']==reference
+    assert len(calls)==1 and 'qwen38_mxfp4_image' not in runtime.config
+    monkeypatch.setattr('studio.conversation_options.image_for',lambda profile:'a-later-release')
+    assert runtime.pin_request(saved)==saved and len(calls)==1
+
+
+def test_missing_contract_owned_qwen_image_does_not_enqueue_unpinned_request(tmp_path,monkeypatch):
+    store=Store(tmp_path);project=store.create_project()['id'];runtime=Runtime(store,{})
+    monkeypatch.setattr(runtime,'command',lambda args,**kwargs:CompletedProcess(args,1,'','missing fixture image'))
+    store.prepare_request=runtime.pin_request
+    with pytest.raises(RuntimeFailure,match='missing'):
+        store.enqueue(project,{'task':'write','profile':profile('qwen38-mxfp4-writing','write'),'prompt':'Fixture'})
+    assert not store.rows('SELECT id FROM jobs')
+    # Other models retain their existing setup flow when unconfigured.
+    other={'profile':profile('minicpm5-chat','write')}
+    assert runtime.pin_request(other) is other
 
 
 def test_qwen_writing_and_structured_planner_use_pinned_token_limits():
@@ -105,6 +152,7 @@ def test_qwen38_cache_probe_is_read_only_and_cannot_create_missing_volume(tmp_pa
     assert probe[probe.index('--network')+1] == 'none'
     assert '--read-only' in probe and '--device' not in probe
     assert 'type=volume,src=existing-cache,dst=/base,readonly,volume-nocopy' in probe
+    assert probe[probe.index('--cap-drop')+1] == 'ALL' and probe[probe.index('--security-opt')+1] == 'no-new-privileges'
     calls.clear()
     def missing_volume(args, **kwargs):
         calls.append(args)

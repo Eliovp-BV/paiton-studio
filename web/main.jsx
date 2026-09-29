@@ -1,14 +1,29 @@
+import Diagnostics from "./Diagnostics";
 import { createStudioApi } from "./studioApi";
-import { Plug as MCPIcon } from "lucide-react";
-import {
-  EditorialHero,
-  MachineStatus,
-  CapabilityShelf,
-} from "./StudioIdentity";
+import { PairingScreen } from "./NetworkAccess";
+import { CapabilityShelf } from "./StudioIdentity";
 import MCPServers from "./MCPServers";
 import { HostNotice } from "./HostGuidance";
 import AgentsStudio from "./AgentsStudio";
+import CodingStudio from "./CodingStudio";
+import ModelAPI from "./ModelAPI";
 import GPTPaiton from "./GPTPaiton";
+import ProjectBrief from "./ProjectBrief";
+import ResultActions from "./ResultActions";
+import SavedResultReader from "./SavedResultReader";
+import TransferReview from "./TransferReview";
+import WorkspaceDialog from "./WorkspaceDialog";
+import ProjectSearch from "./ProjectSearch";
+import Recipes from "./Recipes";
+import CompletionInbox from "./CompletionInbox";
+import {
+  appendDraft,
+  suggestedCodeName,
+  uniqueCodeName,
+  destinationName,
+} from "./workspaceLinks";
+import StudioNavigation, { WorkspaceSections } from "./StudioNavigation";
+import { studioRoute, MODEL_TABS } from "./studioNavigation";
 import {
   PaitonMark,
   CommandBar,
@@ -17,9 +32,8 @@ import {
 } from "./StudioDesign";
 import React, { useState, useEffect, useRef } from "react";
 import { createRoot } from "react-dom/client";
+import { createPortal } from "react-dom";
 import {
-  Bot,
-  Home,
   Folder,
   Image as ImageIcon,
   Film,
@@ -27,7 +41,6 @@ import {
   MessageSquare,
   PanelsTopLeft,
   Library,
-  Settings,
   Boxes,
   ArrowRight,
   ArrowUpRight,
@@ -44,45 +57,48 @@ import {
   RefreshCw,
   Monitor,
   Smartphone,
-  Leaf,
   BookOpen,
-  Activity,
   Globe,
 } from "lucide-react";
 import "./style.css";
 import {
-  GpuActivity,
   ModelChoice,
   ProjectFlow,
   StudioSettings,
   StudioWiki,
   taskProfiles,
+  selectedProfile,
 } from "./WorkspaceExtras";
+import ImageRecipe from "./ImageRecipe";
+import { PerformanceSummary, ImageTime, QueueEstimate } from "./Performance";
+import ComfyWorkspace from "./ComfyWorkspace";
+import { filterLibraryAssets, isPageMedia } from "./librarySearch";
+import {
+  IMAGE_STYLES,
+  imageRecipeDraft,
+  imagePromptLimit,
+  imageEditSourceIssue,
+  imagePromotionProfile,
+  imageSeedSequence,
+  imageSequenceCount,
+  imageStyle,
+  imageStylePhrase,
+  newImageSeed,
+  styledImagePrompt,
+} from "./imageRecipe";
 import WebsiteBuilder from "./WebsiteBuilder";
 import DeliveryStudio from "./DeliveryStudio";
 import MeetingStudio from "./MeetingStudio";
-import { AudioLines } from "lucide-react";
 import WebsiteNotifications from "./WebsiteNotifications";
 import { stageForJob, formatElapsed, studioNow } from "./creationFeedback";
+import { stateLabel } from "./jobStates";
 
 import "./studio-design.css";
 import "./studio-gold.css";
 
 const api = createStudioApi();
-const NAV = [
-  ["home", "Home", Home],
-  ["projects", "Projects", Folder],
-  ["image", "Image", ImageIcon],
-  ["video", "Video", Film],
-  ["chat", "GPT", MessageSquare],
-  ["agents", "Agents", Bot],
-  ["mcp", "MCP Servers", MCPIcon],
-  ["meetings", "Meetings", AudioLines],
-  ["delivery", "Reels & shorts", Smartphone],
-  ["write", "Write", PenLine],
-  ["page", "Build Page", PanelsTopLeft],
-  ["library", "Library", Library],
-];
+const opensComfy =
+  new URLSearchParams(location.search).get("workspace") === "comfy";
 const ACTIVE = [
   "queued",
   "preparing",
@@ -108,22 +124,24 @@ function Media({ asset, compact = false, ...props }) {
     />
   ) : (
     <div className="text-cover">
-      <PenLine size={30} />
+      {asset.kind === "document" ? (
+        <BookOpen size={30} />
+      ) : (
+        <PenLine size={30} />
+      )}
       <strong>{asset.name}</strong>
-      <span>Writing · saved revision</span>
+      <span>
+        {asset.kind === "document"
+          ? "Document · uploaded reference"
+          : asset.kind === "text"
+            ? "Writing · saved revision"
+            : "Saved asset"}
+      </span>
     </div>
   );
 }
 function App() {
-  const [route, setRoute] = useState(() => {
-      const value =
-        location.hash.slice(1) === "mail" ? "mcp" : location.hash.slice(1);
-      return [...NAV.map((n) => n[0]), "tools", "wiki", "settings"].includes(
-        value,
-      )
-        ? value
-        : "home";
-    }),
+  const [route, setRoute] = useState(() => studioRoute(location.hash.slice(1))),
     [projects, setProjects] = useState([]),
     [project, setProject] = useState(null),
     [assets, setAssets] = useState([]),
@@ -132,13 +150,14 @@ function App() {
       jobs: [],
       gpu: { message: "Checking local tools" },
     }),
-    [queueOpen, setQueueOpen] = useState(false),
+    [queueOpen, setActivityOpen] = useState(false),
     [notice, setNotice] = useState(""),
     [saved, setSaved] = useState(true),
     [saveConflict, setSaveConflict] = useState(false),
     [ready, setReady] = useState(false),
     [mobile, setMobile] = useState(false),
     [filter, setFilter] = useState("all"),
+    [libraryQuery, setLibraryQuery] = useState(""),
     [favorites, setFavorites] = useState(false),
     [settings, setSettings] = useState({
       defaults: {},
@@ -146,9 +165,16 @@ function App() {
       generation: {},
     }),
     [gpuSamples, setGpuSamples] = useState([]),
-    [queueHistory, setQueueHistory] = useState(false),
-    [settingsTab, setSettingsTab] = useState("preferences");
+    [queueHistory, setQueueHistory] = useState(false);
   const [chatIntent, setChatIntent] = useState(null);
+  const [focusedQueueJob, setFocusedQueueJob] = useState(null);
+  const [queueFocusRequest, setQueueFocusRequest] = useState(0);
+  const queueFocusCard = useRef(null);
+  const [codingIntent, setCodingIntent] = useState(null);
+  const [handoff, setHandoff] = useState(null);
+  const [readingResult, setReadingResult] = useState(null);
+  const [recipesOpen, setRecipesOpen] = useState(false);
+  const handoffSequence = useRef(0);
   const [agentIntent, setAgentIntent] = useState(null);
   const [mcpSelection, setMcpSelection] = useState(null);
   const [navCollapsed, setNavCollapsed] = useState(false);
@@ -156,22 +182,73 @@ function App() {
   const [requestedWebsiteReview, setRequestedWebsiteReview] = useState(null);
   const [startupAttempt, setStartupAttempt] = useState(0);
   const [startupError, setStartupError] = useState("");
+  const [pairing, setPairing] = useState(null);
+  useEffect(() => {
+    api.onPairingRequired = (error) =>
+      setPairing({ enabled: error.networkEnabled });
+    return () => {
+      api.onPairingRequired = null;
+    };
+  }, []);
+  function paired() {
+    setPairing(null);
+    setConnectionError("");
+    if (!ready) setStartupAttempt((attempt) => attempt + 1);
+  }
   const [connectionError, setConnectionError] = useState("");
   const [submittingTask, setSubmittingTask] = useState(null);
+  // null until the local meeting package has been checked; the navigation
+  // entry appears only when it is ready, Home offers a setup card otherwise.
+  const [meetingsReady, setMeetingsReady] = useState(null);
+  const [creationWorkspace, setCreationWorkspace] = useState(
+    opensComfy ? { image: "comfy", video: "comfy" } : {},
+  );
+  const [comfyVisited, setComfyVisited] = useState(opensComfy);
+  const mediaNavigation = useRef({
+    route,
+    workspaces: creationWorkspace,
+    assets,
+  });
+  mediaNavigation.current = { route, workspaces: creationWorkspace, assets };
+  const lastMediaTask = useRef(route === "video" ? "video" : "image");
+  const isMediaRoute = route === "image" || route === "video";
+  if (isMediaRoute) lastMediaTask.current = route;
+  const mediaTask = isMediaRoute ? route : lastMediaTask.current;
+  const comfyEnabled = isMediaRoute && creationWorkspace[route] === "comfy";
   const submissionLock = useRef(false),
     projectCreation = useRef(null),
-    openRequest = useRef(0);
+    openRequest = useRef(0),
+    generateButton = useRef(null);
   const current = useRef(null),
     dirty = useRef(false),
     saving = useRef(null),
     conflict = useRef(false),
     saveTimer = useRef(),
     importRef = useRef(),
+    importDestination = useRef("video"),
     completed = useRef(null);
   const pstate = project?.state || {};
-  const draft = pstate[route] || {};
-  const jobs = status.jobs.filter((j) => j.project === project?.id),
-    active = status.jobs.filter((j) => ACTIVE.includes(j.state));
+  const [activityTab, setActivityTab] = useState("queue");
+  const [activityUnread, setActivityUnread] = useState(0);
+  const [websitePending, setWebsitePending] = useState(0);
+  const activityTrigger = useRef(null);
+  useEffect(() => {
+    if (!queueOpen) return;
+    const close = (event) => {
+      if (event.key !== "Escape" || event.defaultPrevented) return;
+      setActivityOpen(false);
+      activityTrigger.current?.focus();
+    };
+    document.addEventListener("keydown", close);
+    return () => document.removeEventListener("keydown", close);
+  }, [queueOpen]);
+  function setQueueOpen(value) {
+    setActivityOpen(value);
+    if (value) setActivityTab("queue");
+  }
+  const imageEditing = route === "image" && pstate.image?.mode === "edit";
+  const draft = imageEditing ? pstate.image?.edit || {} : pstate[route] || {};
+  const active = status.jobs.filter((j) => ACTIVE.includes(j.state));
   const currentJob = active.find((j) => j.state !== "queued") || active[0];
   const currentStage = stageForJob(currentJob);
   const selected = assets.find((a) => a.id === pstate.selected) || assets[0];
@@ -192,6 +269,7 @@ function App() {
     if (attempt !== openRequest.current) return;
     if (current.current?.id === id && current.current.revision >= p.revision)
       p = { ...current.current, assets: p.assets };
+    if (current.current?.id !== id) resetLibraryFilters();
     setAssets(p.assets);
     delete p.assets;
     setProject(p);
@@ -200,6 +278,292 @@ function App() {
     setSaved(true);
     setRoute(destination);
     localStorage.setItem("studio-project", id);
+  }
+  async function openWorkspaceTarget(target) {
+    const owner = target.project_id || current.current?.id;
+    if (!owner) throw Error("Open a project first.");
+    const attempt = ++openRequest.current;
+    let value;
+    let destination = "projects";
+    if (target.kind === "chat") {
+      value = await api(`/chats/${target.chat_id}`);
+      if (
+        value.project !== owner ||
+        (target.turn_id &&
+          !value.turns.some((turn) => turn.id === target.turn_id))
+      )
+        throw Error(
+          "This conversation result is no longer available in the project.",
+        );
+      destination = "chat";
+    } else if (target.kind === "agent") {
+      value = await api(`/projects/${owner}/agent-runs/${target.run_id}`);
+      if (value.agent !== target.agent_id)
+        throw Error("This agent result no longer matches its source.");
+      destination = "agents";
+    } else if (target.kind === "code") {
+      value = await api(
+        `/projects/${owner}/code/file?path=${encodeURIComponent(target.path)}`,
+      );
+      if (target.version && value.version !== target.version)
+        throw Error(
+          "This saved file changed. Search again to find its current content.",
+        );
+      destination = "coding";
+    } else if (target.kind === "website") {
+      value = await api(`/projects/${owner}/website-runs/${target.run_id}`);
+      destination = "page";
+    } else if (target.kind === "asset") {
+      const data = await api(`/projects/${owner}`);
+      value = data.assets.find((asset) => asset.id === target.asset_id);
+      if (!value)
+        throw Error("This result is no longer available in the project.");
+      if (["document", "text"].includes(value.kind))
+        value = {
+          ...value,
+          reader: await api(`/projects/${owner}/assets/${value.id}/text`),
+        };
+    } else if (target.kind === "job") {
+      value = await api(`/projects/${owner}/jobs/${target.job_id}`);
+      if (value.id !== target.job_id || value.project !== owner)
+        throw Error("This task is no longer available in the project.");
+    } else throw Error("This result has no supported destination.");
+    if (attempt !== openRequest.current) return false;
+    const opening = openProject(owner, destination),
+      navigation = openRequest.current;
+    await opening;
+    if (navigation !== openRequest.current || current.current?.id !== owner)
+      return false;
+    const id = `${Date.now()}-${navigation}`;
+    if (target.kind === "chat")
+      setChatIntent({
+        project: owner,
+        chatId: target.chat_id,
+        turnId: target.turn_id,
+        id,
+      });
+    if (target.kind === "agent")
+      setAgentIntent({
+        project: owner,
+        agent: target.agent_id,
+        run: value,
+        id,
+      });
+    if (target.kind === "code")
+      setCodingIntent({ ...target, project: owner, kind: "open", id });
+    if (target.kind === "website") {
+      updateState({ buildMode: "website" });
+      setRequestedWebsiteReview(value);
+    }
+    if (target.kind === "asset") {
+      resetLibraryFilters();
+      updateState({ selected: value.id });
+      if (value.reader)
+        setReadingResult({ ...value.reader, query: target.query || "" });
+    }
+    if (target.kind === "job") {
+      setFocusedQueueJob(value);
+      setQueueFocusRequest((request) => request + 1);
+      setQueueHistory(true);
+      setQueueOpen(true);
+      setNotice(value.message || "Task opened in the queue.");
+    } else setQueueOpen(false);
+    return true;
+  }
+  async function prepareHandoff(source) {
+    const owner = current.current;
+    if (!owner || source.project_id !== owner.id)
+      throw Error("Open this result's project before continuing.");
+    const attempt = ++handoffSequence.current;
+    let next = { ...source, project_name: owner.name };
+    if (source.kind !== "image" && typeof source.text !== "string") {
+      const result = await api(
+        `/projects/${owner.id}/assets/${source.asset_id}/text`,
+      );
+      next.text = result.text;
+    }
+    if (source.target === "coding") {
+      const workspace = await api(`/projects/${owner.id}/code`);
+      let cached = {};
+      try {
+        cached =
+          JSON.parse(
+            sessionStorage.getItem(`paiton-code-drafts:${owner.id}`) || "{}",
+          ).buffers || {};
+      } catch {
+        /* Host files remain authoritative. */
+      }
+      next.filename = uniqueCodeName(suggestedCodeName(source.language), [
+        ...workspace.files.map((file) => file.path),
+        ...Object.keys(cached),
+      ]);
+    }
+    if (attempt !== handoffSequence.current || current.current?.id !== owner.id)
+      return;
+    setReadingResult(null);
+    setHandoff(next);
+  }
+  async function applyHandoff(source) {
+    const owner = current.current;
+    if (source.project_id !== owner?.id)
+      throw Error(
+        "The project changed. Open the original result and try again.",
+      );
+    if (source.target === "coding") {
+      let cached = {};
+      try {
+        cached =
+          JSON.parse(
+            sessionStorage.getItem(`paiton-code-drafts:${owner.id}`) || "{}",
+          ).buffers || {};
+      } catch {
+        /* The editor also checks its live buffers. */
+      }
+      if (cached[source.filename])
+        throw Error(
+          "A draft already uses this name. Choose a different file name.",
+        );
+      const checked = await api(`/projects/${owner.id}/code/check-draft`, {
+        path: source.filename,
+        content: source.text,
+        version: null,
+      });
+      if (current.current?.id !== owner.id)
+        throw Error("The project changed; no file was created.");
+      setCodingIntent({
+        project: owner.id,
+        kind: "draft",
+        path: checked.path,
+        language: checked.language,
+        content: source.text,
+        source: source.title,
+        id: Date.now(),
+      });
+      setRoute("coding");
+    } else if (source.target === "chat") {
+      if (!source.asset_id)
+        throw Error("Save this result before attaching it to Chat.");
+      setChatIntent({
+        project: owner.id,
+        task: {
+          text: "Help me build on this result.",
+          document: { id: source.asset_id, name: source.title },
+          source: source.title,
+        },
+        id: Date.now(),
+      });
+      setRoute("chat");
+    } else if (source.target === "write") {
+      const currentDraft = owner.state.write || {};
+      const editor = appendDraft(
+        currentDraft.editor || "",
+        source.text,
+        100000,
+      );
+      updateState({
+        write: {
+          ...currentDraft,
+          editor,
+          title: currentDraft.title || source.title,
+          sourceNote: `Added from ${source.title}`,
+          sourceIds: [
+            ...new Set(
+              [...(currentDraft.sourceIds || []), source.asset_id].filter(
+                Boolean,
+              ),
+            ),
+          ],
+        },
+      });
+      setRoute("write");
+      setNotice(
+        "Result added to your Writing draft. Save a revision when ready.",
+      );
+    } else if (["video", "image"].includes(source.target)) {
+      const asset = assets.find(
+        (item) =>
+          item.id === source.asset_id &&
+          item.project === owner.id &&
+          item.kind === "image",
+      );
+      if (!asset) throw Error("This image is no longer available.");
+      if (source.target === "image") editImage(asset);
+      else openMediaTask("video", asset);
+    }
+    setHandoff(null);
+  }
+  async function useRecipe(recipe) {
+    const navigation = openRequest.current;
+    const owner = await ensureProject();
+    if (navigation !== openRequest.current || current.current?.id !== owner.id)
+      throw Error(
+        "The project changed. Open the recipe again in the intended project.",
+      );
+    const id = Date.now();
+    if (recipe.target === "chat")
+      setChatIntent({
+        project: owner.id,
+        task: { text: recipe.prompt, source: `Recipe: ${recipe.name}` },
+        id,
+      });
+    else if (recipe.target === "coding")
+      setCodingIntent({
+        project: owner.id,
+        kind: "task",
+        text: recipe.prompt,
+        source: `Recipe: ${recipe.name}`,
+        id,
+      });
+    else if (recipe.target === "page")
+      updateState({
+        buildMode: "website",
+        websiteDraft: {
+          ...owner.state.websiteDraft,
+          brief: appendDraft(
+            owner.state.websiteDraft?.brief || "",
+            recipe.prompt,
+            2500,
+          ),
+        },
+      });
+    else if (["image", "write"].includes(recipe.target)) {
+      updateState({
+        [recipe.target]: {
+          ...owner.state[recipe.target],
+          ...(recipe.target === "image" ? { mode: "create" } : {}),
+          prompt: appendDraft(
+            owner.state[recipe.target]?.prompt || "",
+            recipe.prompt,
+            2500,
+          ),
+        },
+      });
+      if (recipe.target === "image") chooseCreationWorkspace("image", "create");
+    } else throw Error("Choose a supported recipe destination.");
+    setRoute(recipe.target);
+    setRecipesOpen(false);
+    setNotice(
+      `${recipe.name} opened in ${destinationName(recipe.target)}. Review the draft and context before generating.`,
+    );
+    return true;
+  }
+  async function openQueueItem(job) {
+    const opening = openProject(
+      job.project,
+      job.request.chat_id ? "chat" : "projects",
+    );
+    const attempt = openRequest.current;
+    await opening;
+    if (attempt !== openRequest.current || current.current?.id !== job.project)
+      return;
+    if (job.asset) updateState({ selected: job.asset });
+    if (job.request.chat_id)
+      setChatIntent({
+        project: job.project,
+        chatId: job.request.chat_id,
+        id: attempt,
+      });
+    setQueueOpen(false);
   }
   async function ensureProject() {
     if (current.current) return current.current;
@@ -219,9 +583,79 @@ function App() {
   }
   async function navigate(to) {
     const attempt = ++openRequest.current;
-    if (!["home", "tools", "settings", "wiki"].includes(to))
+    if (
+      ![
+        "home",
+        "tools",
+        "settings",
+        "wiki",
+        "system",
+        ...Object.keys(MODEL_TABS),
+      ].includes(to)
+    )
       await ensureProject();
-    if (attempt === openRequest.current) setRoute(to);
+    if (attempt !== openRequest.current) return;
+    if (to === "image" || to === "video") openMediaTask(to);
+    else setRoute(to);
+  }
+  function chooseCreationWorkspace(task, mode) {
+    const next = { ...mediaNavigation.current.workspaces, [task]: mode };
+    mediaNavigation.current.workspaces = next;
+    setCreationWorkspace(next);
+    if (mode === "comfy") setComfyVisited(true);
+  }
+  function openMediaTask(task, explicitSource) {
+    const navigation = mediaNavigation.current;
+    const outgoingMedia =
+      navigation.route === "image" || navigation.route === "video";
+    const mode =
+      navigation.workspaces[outgoingMedia ? navigation.route : task] ||
+      "create";
+    const owner = current.current;
+    if (
+      explicitSource &&
+      (explicitSource.kind !== "image" || explicitSource.project !== owner?.id)
+    ) {
+      setNotice("Open this image's project before using it for video.");
+      return;
+    }
+    chooseCreationWorkspace(task, mode);
+    if (
+      task === "video" &&
+      owner &&
+      (navigation.route === "image" || explicitSource)
+    ) {
+      const projectImages = navigation.assets.filter(
+        (asset) => asset.kind === "image" && asset.project === owner.id,
+      );
+      const state = owner.state || {};
+      const source =
+        explicitSource ||
+        projectImages.find((asset) => asset.id === state.selected) ||
+        projectImages.find((asset) => asset.id === state.video?.source) ||
+        projectImages[0];
+      if (source) {
+        const patch = {
+          selected: source.id,
+          video: { ...(state.video || {}), source: source.id, mode: "image" },
+        };
+        // Choosing an image for video is an edit; merely entering the Video
+        // workspace only seeds the view and must not save the project.
+        if (explicitSource) updateState(patch);
+        else seedState(patch);
+      }
+    }
+    mediaNavigation.current.route = task;
+    lastMediaTask.current = task;
+    setRoute(task);
+  }
+  function seedState(patch) {
+    const p = {
+      ...current.current,
+      state: { ...current.current.state, ...patch },
+    };
+    setProject(p);
+    current.current = p;
   }
   function updateState(patch) {
     const p = {
@@ -236,7 +670,14 @@ function App() {
     saveTimer.current = setTimeout(() => flush().catch(report), 450);
   }
   function changeDraft(patch) {
-    updateState({ [route]: { ...draft, ...patch } });
+    if (imageEditing)
+      updateState({
+        image: { ...current.current.state.image, edit: { ...draft, ...patch } },
+      });
+    else updateState({ [route]: { ...draft, ...patch } });
+  }
+  function changeImageMode(mode) {
+    updateState({ image: { ...current.current.state.image, mode } });
   }
   async function flush() {
     clearTimeout(saveTimer.current);
@@ -327,16 +768,7 @@ function App() {
         .map((j) => j.id)
         .join();
       const id = localStorage.getItem("studio-project");
-      const destination =
-        location.hash.slice(1) === "mail" ? "mcp" : location.hash.slice(1);
-      const target = [
-        ...NAV.map((n) => n[0]),
-        "tools",
-        "settings",
-        "wiki",
-      ].includes(destination)
-        ? destination
-        : "home";
+      const target = studioRoute(location.hash.slice(1));
       if (ps.length)
         await openProject(ps.find((p) => p.id === id)?.id || ps[0].id, target);
       else await navigate(target);
@@ -349,6 +781,27 @@ function App() {
       clearTimeout(saveTimer.current);
     };
   }, [startupAttempt]);
+  useEffect(() => {
+    if (!ready) return;
+    let alive = true,
+      retry;
+    // A failed check leaves readiness unknown, so a transient error never
+    // hides a prepared package; one retry covers a backend still starting.
+    // Only an explicit "not ready" hides the Meetings entry.
+    const check = (attempt) =>
+      api("/meetings/readiness")
+        .then((readiness) => {
+          if (alive) setMeetingsReady(Boolean(readiness.ready));
+        })
+        .catch(() => {
+          if (alive && attempt === 0) retry = setTimeout(() => check(1), 4000);
+        });
+    check(0);
+    return () => {
+      alive = false;
+      clearTimeout(retry);
+    };
+  }, [ready]);
   useEffect(() => {
     if (!ready) return;
     let alive = true,
@@ -405,13 +858,17 @@ function App() {
     window.scrollTo({ top: 0, behavior: "instant" });
   }, [route, ready]);
   useEffect(() => {
+    if (!ready || !["image", "video"].includes(route)) return;
+    const destination = new URL(location.href);
+    if (creationWorkspace[route] === "comfy")
+      destination.searchParams.set("workspace", "comfy");
+    else destination.searchParams.delete("workspace");
+    if (destination.href !== location.href)
+      history.replaceState(history.state, "", destination);
+  }, [creationWorkspace, route, ready]);
+  useEffect(() => {
     const change = () => {
-      const value =
-        location.hash.slice(1) === "mail" ? "mcp" : location.hash.slice(1);
-      if (
-        [...NAV.map((n) => n[0]), "tools", "wiki", "settings"].includes(value)
-      )
-        navigate(value).catch(report);
+      navigate(studioRoute(location.hash.slice(1))).catch(report);
     };
     window.addEventListener("hashchange", change);
     return () => window.removeEventListener("hashchange", change);
@@ -439,7 +896,11 @@ function App() {
     });
     return projectCreation.current;
   }
-  async function importImage(file) {
+  function chooseImageImport(destination = "video") {
+    importDestination.current = destination;
+    importRef.current.click();
+  }
+  async function importImage(file, destination = "video") {
     if (!file) return;
     const p = await ensureProject();
     const body = new FormData();
@@ -447,31 +908,42 @@ function App() {
     const asset = await api("/projects/" + p.id + "/import", body);
     if (current.current?.id !== p.id) {
       setNotice(
-        "Image imported into its original project. Open that project to animate it.",
+        "Image imported into its original project. Open that project to use it.",
       );
       return;
     }
     await refreshAssets();
     if (current.current?.id !== p.id) return;
+    if (destination === "image") editImage(asset);
+    else animate(asset);
+    setNotice(
+      `Your original image is saved and selected for ${destination === "image" ? "editing" : "video"}.`,
+    );
+  }
+  function editImage(asset) {
+    if (asset.kind !== "image" || asset.project !== current.current?.id)
+      throw Error("Choose an image from the current project.");
+    const state = current.current.state;
     updateState({
-      selected: asset.id,
-      video: {
-        ...(current.current.state.video || {}),
-        source: asset.id,
-        mode: "image",
+      image: {
+        ...state.image,
+        mode: "edit",
+        edit: { ...state.image?.edit, source: asset.id },
       },
+      selected: asset.id,
     });
-    setRoute("video");
-    setNotice("Your original image is saved. Describe how it should move.");
+    chooseCreationWorkspace("image", "create");
+    setRoute("image");
+    setNotice(
+      "Describe your changes below. Your original is kept, and the edited image is saved separately.",
+    );
   }
   function animate(asset) {
-    updateState({
-      selected: asset.id,
-      video: { ...(pstate.video || {}), source: asset.id, mode: "image" },
-    });
-    setRoute("video");
+    openRequest.current++;
+    openMediaTask("video", asset);
   }
   function useOnPage(asset) {
+    if (!isPageMedia(asset)) return;
     const page = pstate.page || {};
     updateState({
       buildMode: "single",
@@ -495,18 +967,49 @@ function App() {
   }
   async function generate() {
     if (submissionLock.current) return;
+    if (status.worker?.state === "stopped")
+      throw Error(
+        "AI is paused. Your draft is saved for when execution resumes.",
+      );
     submissionLock.current = true;
     setSubmittingTask(route);
     try {
+      if (creationPromptLength > creationPromptLimit)
+        throw Error(
+          `This profile supports ${creationProfileLimit} characters${
+            creationStyle
+              ? ` including the ${creationStyle.label} style phrase`
+              : ""
+          }. Shorten your prompt or choose another profile.`,
+        );
       const p = await ensureProject();
+      // An empty image seed is drawn once before the sequence is derived, and
+      // written back so the series stays reproducible from the draft. Any other
+      // value is sent as typed: the server's validation message explains a
+      // negative or fractional seed instead of a silent replacement.
+      let baseSeed = Number(shownSeed);
+      if (route === "image" && shownSeed === "") {
+        baseSeed = newImageSeed();
+        changeDraft({ seed: baseSeed });
+      }
       await flush();
       const profileId = draft.profile || "auto";
       const body = {
         task: route,
         profile_id: profileId,
         prompt: draft.prompt || "",
-        seed: Number(draft.seed ?? settings.generation?.seed ?? 771),
       };
+      if (creationStyle) {
+        // The style is applied here, never to the draft text.
+        body.prompt = styledImagePrompt(draft.prompt, creationStyle.id);
+        body.style = creationStyle.id;
+      }
+      if (imageEditing) {
+        const original = assets.find((asset) => asset.id === draft.source);
+        const issue = imageEditSourceIssue(original, p.id);
+        if (issue) throw Error(issue);
+        body.source_id = original.id;
+      }
       if (route === "video" && (draft.mode || "image") === "image") {
         if (!draft.source) throw Error("Choose the image you want to animate.");
         body.source_id = draft.source;
@@ -519,14 +1022,39 @@ function App() {
           length: Number(draft.length || 250),
           context_ids: draft.context_ids || [],
         });
-      const job = await api("/projects/" + p.id + "/jobs", body);
-      // A confirmed enqueue stays successful even if the next status poll fails.
-      setStatus((s) => ({
-        ...s,
-        jobs: [job, ...s.jobs.filter((item) => item.id !== job.id)],
-      }));
+      const seeds =
+        route === "image"
+          ? imageSeedSequence(baseSeed, imageCount)
+          : [baseSeed];
+      const queued = [];
+      for (const seed of seeds) {
+        let job;
+        try {
+          job = await api("/projects/" + p.id + "/jobs", { ...body, seed });
+        } catch (error) {
+          // Keep what the queue accepted and say how far the series got.
+          if (!queued.length) throw error;
+          setQueueOpen(true);
+          setNotice(
+            `Queued ${queued.length} of ${seeds.length} requests (seeds ${seeds
+              .slice(0, queued.length)
+              .join(", ")}). ${error.message}`,
+          );
+          return;
+        }
+        queued.push(job);
+        // A confirmed enqueue stays successful even if the next status poll fails.
+        setStatus((s) => ({
+          ...s,
+          jobs: [job, ...s.jobs.filter((item) => item.id !== job.id)],
+        }));
+      }
       setQueueOpen(true);
-      setNotice("Request saved in the queue. You can keep editing.");
+      setNotice(
+        seeds.length > 1
+          ? `${seeds.length} requests saved in the queue with seeds ${seeds.join(", ")}. You can keep editing.`
+          : "Request saved in the queue. You can keep editing.",
+      );
     } finally {
       submissionLock.current = false;
       setSubmittingTask(null);
@@ -585,70 +1113,200 @@ function App() {
       }
     };
   }
+  function reuseImage(asset, variation = false, promoteTo = null) {
+    if (asset.project !== current.current?.id)
+      throw Error("Open this image's project before reusing its settings.");
+    const next = imageRecipeDraft(
+      asset,
+      variation ? newImageSeed(asset.metadata?.request?.seed) : undefined,
+    );
+    if (!next) throw Error("This image has no reusable generation settings.");
+    // Promotion keeps the prompt, style and seed and only raises the profile.
+    if (promoteTo) next.profile = promoteTo;
+    const imageState = current.current.state.image || {};
+    updateState({
+      image:
+        next.mode === "edit"
+          ? { ...imageState, mode: "edit", edit: next }
+          : {
+              ...imageState,
+              ...next,
+              ...(imageState.mode ? { mode: "create" } : {}),
+            },
+      selected: asset.id,
+    });
+    chooseCreationWorkspace("image", "create");
+    setRoute("image");
+    const restored = `Prompt, ${next.style ? "style, " : ""}profile`;
+    setNotice(
+      promoteTo
+        ? `Prompt, ${next.style ? "style " : ""}and seed restored with the 2048 × 2048 profile. Review the request, then generate.`
+        : variation
+          ? `${restored} restored with a new seed. Review the request, then generate.`
+          : `${restored} and seed restored. Review the request, then generate.`,
+    );
+    if (promoteTo) setTimeout(() => generateButton.current?.focus(), 0);
+  }
   function actionAsset(asset) {
+    const promotion = imagePromotionProfile(asset, tools);
     return (
-      <div className="actions">
-        {asset.kind === "image" && (
-          <button className="primary compact" onClick={() => animate(asset)}>
-            <Play size={15} />
-            Animate this
-          </button>
-        )}
-        {asset.kind === "video" && (
-          <button
-            className="primary compact"
-            onClick={() => {
-              updateState({
-                delivery: {
-                  ...current.current.state.delivery,
-                  source_id: asset.id,
-                },
-              });
-              setRoute("delivery");
+      <>
+        <div className="actions">
+          {imageRecipeDraft(asset) && (
+            <>
+              <button onClick={guarded(() => reuseImage(asset))}>
+                <RefreshCw size={15} />
+                Reuse settings
+              </button>
+              <button onClick={guarded(() => reuseImage(asset, true))}>
+                <Plus size={15} />
+                New variation
+              </button>
+              {promotion && (
+                <button
+                  title="Creates this prompt and seed again at 2048 × 2048; details can change."
+                  onClick={guarded(() =>
+                    reuseImage(asset, false, promotion.id),
+                  )}
+                >
+                  <ArrowUpRight size={15} />
+                  Promote to 2048
+                </button>
+              )}
+            </>
+          )}
+          {asset.kind === "image" && (
+            <button onClick={guarded(() => editImage(asset))}>
+              <PenLine size={15} /> Edit image
+            </button>
+          )}
+          {asset.kind === "image" && (
+            <button className="primary compact" onClick={() => animate(asset)}>
+              <Play size={15} />
+              Animate this
+            </button>
+          )}
+          {asset.kind === "video" && (
+            <button
+              className="primary compact"
+              onClick={() => {
+                updateState({
+                  delivery: {
+                    ...current.current.state.delivery,
+                    source_id: asset.id,
+                  },
+                });
+                setRoute("delivery");
+              }}
+            >
+              <Smartphone size={15} />
+              Prepare for sharing
+            </button>
+          )}
+          {asset.kind !== "text" && (
+            <button onClick={() => writeAbout(asset)}>
+              <PenLine size={15} />
+              Write about this
+            </button>
+          )}
+          {asset.kind === "text" && (
+            <button
+              onClick={guarded(async () => {
+                await selectDocument(asset);
+                setRoute("write");
+              })}
+            >
+              Open writing
+            </button>
+          )}
+          {isPageMedia(asset) && (
+            <button onClick={() => useOnPage(asset)}>
+              <PanelsTopLeft size={15} />
+              Use on page
+            </button>
+          )}
+          <a className="button" href={url(asset) + "?download=true"}>
+            <Download size={15} />
+            Export
+          </a>
+        </div>
+        {["text", "document"].includes(asset.kind) && (
+          <ResultActions
+            source={{
+              kind: "text",
+              asset_id: asset.id,
+              project_id: asset.project,
+              title: asset.name,
             }}
-          >
-            <Smartphone size={15} />
-            Prepare for sharing
-          </button>
+            onHandoff={guarded(prepareHandoff)}
+          />
         )}
-        {asset.kind !== "text" && (
-          <button onClick={() => writeAbout(asset)}>
-            <PenLine size={15} />
-            Write about this
-          </button>
-        )}
-        {asset.kind === "text" ? (
-          <button
-            onClick={guarded(async () => {
-              await selectDocument(asset);
-              setRoute("write");
-            })}
-          >
-            Open writing
-          </button>
-        ) : (
-          <button onClick={() => useOnPage(asset)}>
-            <PanelsTopLeft size={15} />
-            Use on page
-          </button>
-        )}
-        <a className="button" href={url(asset) + "?download=true"}>
-          <Download size={15} />
-          Export
-        </a>
-      </div>
+        <ImageRecipe asset={asset} />
+      </>
     );
   }
-  const visibleAssets = assets.filter(
-    (a) =>
-      (filter === "all" || a.kind === filter) && (!favorites || a.favorite),
-  );
+  const projectAssets = assets.filter((a) => a.project === project?.id);
+  const visibleAssets = filterLibraryAssets(assets, {
+    projectId: project?.id,
+    query: libraryQuery,
+    kind: filter,
+    favorites,
+  });
+  const hasLibraryFilters = !!libraryQuery || filter !== "all" || favorites;
+  function resetLibraryFilters() {
+    setLibraryQuery("");
+    setFilter("all");
+    setFavorites(false);
+  }
   const videos = assets.filter((a) => a.kind === "video"),
     images = assets.filter((a) => a.kind === "image"),
     documents = assets.filter((a) => a.kind === "text");
-  const source = images.find((a) => a.id === draft.source);
+  const editorImages = images.filter((a) => a.project === project?.id);
+  const editorSource =
+    editorImages.find((a) => a.id === pstate.video?.source) ||
+    editorImages.find((a) => a.id === pstate.selected) ||
+    editorImages[0];
+  const source = editorImages.find((a) => a.id === draft.source);
+  const creationSource =
+    imageEditing || (route === "video" && (draft.mode || "image") === "image");
+  const editSourceIssue = imageEditing
+    ? imageEditSourceIssue(source, project?.id)
+    : "";
+  const imageRole = imageEditing ? "image_edit" : "image";
   const page = pstate.page || {};
   const buildMode = pstate.buildMode || "single";
+  const creationProfileLimit =
+    route === "image"
+      ? imagePromptLimit(
+          selectedProfile(
+            tools,
+            imageRole,
+            draft.profile || "auto",
+            settings.defaults?.[imageRole],
+          ),
+        )
+      : 2500;
+  // A selected style is appended when the request is built, so its phrase is
+  // reserved out of the profile's prompt budget instead of counted in the draft.
+  const creationStyle =
+    route === "image" && !imageEditing ? imageStyle(draft.style) : null;
+  const creationStyleReserve = imageStylePhrase(creationStyle?.id).length;
+  const creationPromptLimit = creationProfileLimit - creationStyleReserve;
+  const creationPromptLength =
+    route === "image"
+      ? Array.from(draft.prompt || "").length
+      : (draft.prompt || "").length;
+  const promptOverLimit = creationPromptLength > creationPromptLimit;
+  // Count queues one ordinary request per seed, counting up from the seed shown.
+  const imageCount = route === "image" ? imageSequenceCount(draft.count) : 1;
+  const shownSeed = draft.seed ?? settings.generation?.seed ?? 771;
+  const imageSeeds =
+    imageCount > 1 &&
+    shownSeed !== "" &&
+    Number.isSafeInteger(Number(shownSeed)) &&
+    Number(shownSeed) >= 0
+      ? imageSeedSequence(Number(shownSeed), imageCount)
+      : null;
   const resolvedVideoProfile =
     (draft.profile && draft.profile !== "auto"
       ? draft.profile
@@ -672,10 +1330,51 @@ function App() {
       tools,
       (draft.mode || "image") === "text" ? "video_text" : "video",
     ).find((item) => item.id === resolvedVideoProfile)?.audio === true;
+  useEffect(() => {
+    if (focusedQueueJob && focusedQueueJob.project !== project?.id)
+      setFocusedQueueJob(null);
+  }, [project?.id, focusedQueueJob?.project]);
+  useEffect(() => {
+    if (!focusedQueueJob) return;
+    const latest = status.jobs.find((job) => job.id === focusedQueueJob.id);
+    if (
+      latest &&
+      latest !== focusedQueueJob &&
+      (latest.updated || 0) >= (focusedQueueJob.updated || 0)
+    )
+      setFocusedQueueJob(latest);
+  }, [status.jobs, focusedQueueJob]);
+  useEffect(() => {
+    if (
+      !queueOpen ||
+      !focusedQueueJob ||
+      focusedQueueJob.project !== project?.id
+    )
+      return;
+    const frame = requestAnimationFrame(() => {
+      queueFocusCard.current?.scrollIntoView({
+        block: "center",
+        behavior: "instant",
+      });
+      queueFocusCard.current?.focus({ preventScroll: true });
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [queueOpen, queueFocusRequest, focusedQueueJob?.id, project?.id]);
+  const queueJobs =
+    focusedQueueJob && focusedQueueJob.project === project?.id
+      ? [
+          focusedQueueJob,
+          ...status.jobs.filter((job) => job.id !== focusedQueueJob.id),
+        ]
+      : status.jobs;
   const jobsToShow =
     settings.appearance?.compact_queue && !queueHistory
-      ? status.jobs.filter((job) => ACTIVE.includes(job.state))
-      : status.jobs;
+      ? queueJobs.filter((job) => ACTIVE.includes(job.state))
+      : queueJobs;
+  if (!ready && pairing)
+    return (
+      <PairingScreen api={api} enabled={pairing.enabled} onPaired={paired} />
+    );
   if (!ready)
     return (
       <div className="startup" role="status">
@@ -720,12 +1419,23 @@ function App() {
   });
   return (
     <div
+      inert={pairing ? true : undefined}
       className={
         "shell studio-shell route-" +
         route +
         (navCollapsed ? " nav-collapsed" : "")
       }
     >
+      {pairing &&
+        createPortal(
+          <PairingScreen
+            api={api}
+            enabled={pairing.enabled}
+            onPaired={paired}
+            overlay
+          />,
+          document.body,
+        )}
       <aside className="sidebar">
         <a
           className="brand"
@@ -749,72 +1459,22 @@ function App() {
           <PanelsTopLeft size={16} />
           <span>Creative workspace</span>
         </button>
-        <nav aria-label="Main navigation">
-          {NAV.map(([id, label, Icon], i) => (
-            <React.Fragment key={id}>
-              {i === 2 && <div className="nav-label">CREATE</div>}
-              {id === "library" && (
-                <>
-                  <div className="nav-label">LIBRARY</div>
-                  <button
-                    className={route === "tools" ? "nav active" : "nav"}
-                    onClick={() => setRoute("tools")}
-                  >
-                    <Boxes size={18} />
-                    Creation tools
-                  </button>
-                </>
-              )}
-              <button
-                aria-label={label}
-                title={label}
-                aria-current={route === id ? "page" : undefined}
-                className={route === id ? "nav active" : "nav"}
-                onClick={guarded(() => navigate(id))}
-              >
-                <Icon size={18} />
-                <span>
-                  {id === "page"
-                    ? "Build Website"
-                    : id === "write"
-                      ? "Writing"
-                      : label}
-                </span>
-              </button>
-            </React.Fragment>
-          ))}
-        </nav>
+        <StudioNavigation
+          route={route}
+          collapsed={navCollapsed}
+          hidden={meetingsReady === false ? ["meetings"] : []}
+          onNavigate={(to) => guarded(() => navigate(to))()}
+        />
         <div className="sidebar-bottom">
-          <button
-            className={route === "wiki" ? "nav active" : "nav"}
-            onClick={() => setRoute("wiki")}
-          >
-            <BookOpen size={18} />
-            Studio wiki
-          </button>
-          <button
-            className={route === "settings" ? "nav active" : "nav"}
-            onClick={() => {
-              setSettingsTab("preferences");
-              setRoute("settings");
-            }}
-          >
-            <Settings size={18} />
-            Settings
-          </button>
-          {!["home", "settings"].includes(route) && (
-            <HardwarePanel
-              gpu={status.gpu}
-              samples={gpuSamples}
-              active={active.length > 0}
-              state={currentJob?.state}
-              chatReady={status.chat_model_ready}
-              onDetails={() => {
-                setSettingsTab("system");
-                setRoute("settings");
-              }}
-            />
-          )}
+          <HardwarePanel
+            gpu={status.gpu}
+            samples={gpuSamples}
+            active={active.length > 0}
+            state={currentJob?.state}
+            chatReady={status.chat_model_ready}
+            details={settings.appearance?.show_gpu_details ?? true}
+            onDetails={() => setRoute("system")}
+          />
           <a
             className="product-attribution"
             href="https://eliovp.com"
@@ -859,7 +1519,7 @@ function App() {
             <span className="save-state">
               <Check size={13} />
               {saved
-                ? "Saved on Studio host"
+                ? "Saved on this computer"
                 : saveConflict
                   ? "Save conflict · edits kept here"
                   : "Unsaved changes"}
@@ -870,16 +1530,24 @@ function App() {
               <span className="status-dot" />
               Local AI
             </span>
-            <span className="topbar-gpu">
-              <Activity size={14} />
-              {Number.isFinite(status.gpu.utilization_percent)
-                ? `${status.gpu.utilization_percent}% GPU`
-                : "GPU readings unavailable"}
-            </span>
-            <button onClick={() => setQueueOpen(!queueOpen)}>
+            <button
+              aria-label="Activity"
+              aria-expanded={queueOpen}
+              aria-controls="studio-activity"
+              ref={activityTrigger}
+              onClick={() => setActivityOpen(!queueOpen)}
+            >
               <Clock size={16} />
-              <span>Queue</span>
-              <b className="count">{active.length}</b>
+              <span>Activity</span>
+              {active.length > 0 && <b className="count">{active.length}</b>}
+              {(activityUnread > 0 || websitePending > 0) && (
+                <span
+                  className="activity-unread"
+                  title="Saved outcomes are ready to review"
+                >
+                  •
+                </span>
+              )}
             </button>
             <button
               className="primary"
@@ -904,9 +1572,8 @@ function App() {
           <HostNotice
             api={api}
             onDetails={() => {
-              setSettingsTab("system");
-              setRoute("settings");
-              window.location.hash = "settings";
+              setRoute("system");
+              window.location.hash = "system";
             }}
           />
           {saveConflict && (
@@ -952,21 +1619,19 @@ function App() {
               </button>
             </div>
           )}
-          {project &&
-            ["projects", "image", "video", "write", "page"].includes(route) && (
-              <ProjectFlow
-                assets={assets}
-                page={page}
-                website={
-                  !!(
-                    pstate.websiteDraft?.editor ||
-                    pstate.websiteDraft?.siteReady
-                  )
-                }
-                route={route}
-                onNavigate={guarded(navigate)}
-              />
-            )}
+          {project && route === "projects" && (
+            <ProjectFlow
+              assets={assets}
+              page={page}
+              website={
+                !!(
+                  pstate.websiteDraft?.editor || pstate.websiteDraft?.siteReady
+                )
+              }
+              route={route}
+              onNavigate={guarded(navigate)}
+            />
+          )}
           {currentJob && (
             <button
               className="creation-status"
@@ -987,26 +1652,52 @@ function App() {
               <ChevronRight size={16} />
             </button>
           )}
+          <div className="studio-workspace-tools" aria-label="Workspace tools">
+            {project && (
+              <ProjectSearch
+                project={project}
+                api={api}
+                onOpen={openWorkspaceTarget}
+                report={report}
+              />
+            )}
+            <button type="button" onClick={() => setRecipesOpen(true)}>
+              <BookOpen size={15} /> Recipes
+            </button>
+          </div>
+          {![
+            "image",
+            "video",
+            "write",
+            "page",
+            "settings",
+            "system",
+            ...Object.keys(MODEL_TABS),
+          ].includes(route) && (
+            <WorkspaceSections
+              route={route}
+              onNavigate={(to) => guarded(() => navigate(to))()}
+            />
+          )}
           {route === "home" && (
             <HomeWorkspace
               gpu={status.gpu}
               active={active.length > 0}
               onDetails={() => {
-                setSettingsTab("system");
-                setRoute("settings");
+                setRoute("system");
               }}
               onLaunch={launchIdea}
               projects={projects}
               project={project}
               assets={assets}
               tools={tools}
+              meetingsReady={meetingsReady}
               onNavigate={guarded(navigate)}
               onOpen={guarded(openProject)}
               onCreate={guarded(createProject)}
-              onImport={() => importRef.current.click()}
+              onImport={() => chooseImageImport("video")}
               onSetup={() => {
-                setSettingsTab("setup");
-                setRoute("settings");
+                setRoute("model-setup");
               }}
             />
           )}
@@ -1028,6 +1719,14 @@ function App() {
                   New project
                 </button>
               </div>
+              {route === "projects" && project && (
+                <ProjectBrief
+                  key={project.id}
+                  project={project}
+                  api={api}
+                  selection={false}
+                />
+              )}
               <div className="toolbar">
                 <label>
                   Project
@@ -1051,6 +1750,7 @@ function App() {
                     ["image", "Images"],
                     ["video", "Video"],
                     ["text", "Writing"],
+                    ["document", "Documents"],
                   ].map(([v, t]) => (
                     <button
                       key={v}
@@ -1070,6 +1770,29 @@ function App() {
                   Favorites
                 </button>
               </div>
+              <div className="toolbar">
+                <label style={{ flex: 1, minWidth: 0 }}>
+                  Search this project
+                  <input
+                    type="search"
+                    value={libraryQuery}
+                    placeholder="Search by name, prompt or model"
+                    aria-describedby="library-search-scope"
+                    onChange={(e) => setLibraryQuery(e.target.value)}
+                  />
+                </label>
+                {hasLibraryFilters && (
+                  <button onClick={resetLibraryFilters}>
+                    <X size={16} />
+                    Clear filters
+                  </button>
+                )}
+              </div>
+              <p className="helper" id="library-search-scope" role="status">
+                Showing {visibleAssets.length} of {projectAssets.length} assets
+                in {project?.name || "this project"}. Search covers names,
+                prompts and models.
+              </p>
               {selected && route === "projects" && (
                 <div className="project-overview">
                   <div className="feature-media">
@@ -1103,7 +1826,9 @@ function App() {
                                     : "Generated video"
                                   : a.kind === "text"
                                     ? "Writing revision"
-                                    : "Generated image"}
+                                    : a.kind === "document"
+                                      ? "Uploaded document"
+                                      : "Generated image"}
                             </small>
                           </span>
                           <ChevronRight size={14} />
@@ -1171,6 +1896,18 @@ function App() {
                     </article>
                   ))}
                 </div>
+              ) : projectAssets.length > 0 ? (
+                <div className="empty">
+                  <Library size={30} />
+                  <h3>No assets match these filters</h3>
+                  <p>
+                    Try another name, prompt or model, or clear the filters to
+                    see every asset in {project?.name || "this project"}.
+                  </p>
+                  <button onClick={resetLibraryFilters}>
+                    Show all project assets
+                  </button>
+                </div>
               ) : (
                 <div className="empty">
                   <ImageIcon size={30} />
@@ -1185,6 +1922,7 @@ function App() {
           )}
           {route === "mcp" && project && (
             <MCPServers
+              onCoding={() => setRoute("coding")}
               initialServer={
                 mcpSelection?.project === project.id ? mcpSelection.id : null
               }
@@ -1198,19 +1936,29 @@ function App() {
                 setRoute("agents");
               }}
               onAgent={(agent) => {
-                setAgentIntent({ project: project.id, agent, id: Date.now() });
+                setAgentIntent({
+                  project: project.id,
+                  agent,
+                  id: Date.now(),
+                });
                 setRoute("agents");
               }}
               key={project.id}
               project={project}
               assets={assets}
-              tools={tools}
               api={api}
             />
           )}
           {route === "agents" && project && (
             <AgentsStudio
               defaultConversationOptions={settings.conversation}
+              defaultProfile={settings.defaults?.chat || "auto"}
+              onModels={() => {
+                setRoute("model-setup");
+              }}
+              onCoding={() => setRoute("coding")}
+              onHandoff={guarded(prepareHandoff)}
+              worker={status.worker}
               initialIntent={
                 agentIntent?.project === project.id ? agentIntent : null
               }
@@ -1228,9 +1976,16 @@ function App() {
           )}
           {route === "chat" && project && (
             <GPTPaiton
+              assets={assets}
+              worker={status.worker}
+              defaultImageProfile={settings.defaults?.image || "auto"}
               gpu={status.gpu}
               key={project.id}
               initialIntent={chatIntent}
+              onHandoff={guarded(prepareHandoff)}
+              onIntentConsumed={(id) =>
+                setChatIntent((intent) => (intent?.id === id ? null : intent))
+              }
               defaultProfile={settings.defaults?.chat || "auto"}
               defaultCodeProfile={settings.defaults?.code || "auto"}
               defaultConversationOptions={settings.conversation}
@@ -1239,347 +1994,625 @@ function App() {
               tools={tools}
               report={report}
               onSetup={() => {
-                setSettingsTab("setup");
-                setRoute("settings");
+                setRoute("model-setup");
+              }}
+            />
+          )}
+          {route === "coding" && project && (
+            <CodingStudio
+              defaultProfile={settings.defaults?.code || "auto"}
+              onModels={() => {
+                setRoute("model-setup");
+              }}
+              key={project.id}
+              project={project}
+              api={api}
+              tools={tools}
+              worker={status.worker}
+              initialPrompt={pstate.coding?.prompt || ""}
+              initialIntent={
+                codingIntent?.project === project.id ? codingIntent : null
+              }
+              onIntentConsumed={(id) =>
+                setCodingIntent((intent) => (intent?.id === id ? null : intent))
+              }
+              onHandoff={guarded(prepareHandoff)}
+              onMCP={() => setRoute("mcp")}
+              onAgents={() => setRoute("agents")}
+              onModelAPI={() => setRoute("model-api")}
+            />
+          )}
+          {route === "model-api" && project && (
+            <ModelAPI
+              key={project.id}
+              project={project}
+              api={api}
+              tools={tools}
+              worker={status.worker}
+              onModels={() => {
+                setRoute("model-setup");
               }}
             />
           )}
           {(route === "image" || route === "video") && (
             <>
-              <div className="creation-identity">
-                <EditorialHero
-                  compact
-                  label={route === "image" ? "IMAGE CREATION" : "MOTION STUDIO"}
-                  title={route === "image" ? "Turn ideas" : "Bring your ideas"}
-                  accent={route === "image" ? "into images." : "to life."}
+              <div
+                className="creation-workspace-tabs"
+                role="group"
+                aria-label="Creation workspace"
+              >
+                <button
+                  aria-pressed={creationWorkspace[route] !== "comfy"}
+                  onClick={() => chooseCreationWorkspace(route, "create")}
                 >
-                  Your vision, created on your machine.
-                </EditorialHero>
-                <MachineStatus gpu={status.gpu} active={active.length > 0} />
-              </div>
-              {route === "video" && (
-                <div className="tabs mode-tabs">
-                  <button
-                    className={
-                      (draft.mode || "image") === "image" ? "chosen" : ""
-                    }
-                    onClick={() =>
-                      changeDraft({ mode: "image", profile: "auto" })
-                    }
-                  >
-                    From image
-                  </button>
-                  <button
-                    className={draft.mode === "text" ? "chosen" : ""}
-                    onClick={() =>
-                      changeDraft({ mode: "text", profile: "auto" })
-                    }
-                  >
-                    From text
-                  </button>
-                </div>
-              )}
-              <div className="visual-workbench">
-                <section className="creation-canvas">
-                  <div className="canvas-topline">
-                    <span className="eyebrow">
-                      {route === "image" ? "IMAGE CANVAS" : "VIDEO PREVIEW"}
-                    </span>
-                    <span className="helper">
-                      Original assets · saved locally
-                    </span>
-                  </div>
-                  {(route === "image" ? images : videos)[0] ? (
-                    <Media
-                      asset={
-                        (route === "image" ? images : videos).find(
-                          (a) => a.id === pstate.selected,
-                        ) || (route === "image" ? images : videos)[0]
-                      }
-                    />
+                  {route === "image" ? (
+                    <ImageIcon size={16} />
                   ) : (
-                    <div className="canvas-empty">
-                      <div className="canvas-reticle">
-                        <ImageIcon size={42} />
-                      </div>
-                      <h2>
-                        {route === "image"
-                          ? "A place for your imagination."
-                          : "Your next moving story."}
-                      </h2>
-                      <p>
-                        {route === "image"
-                          ? "Describe an idea. Your original image will appear here."
-                          : "Choose a source and describe the motion. Your finished clip will appear here."}
-                      </p>
-                      <span className="eyebrow">CREATED ON YOUR MACHINE</span>
-                    </div>
-                  )}
-                  {(route === "image" ? images : videos)[0] && (
-                    <div className="canvas-actions">
-                      {actionAsset(
-                        (route === "image" ? images : videos).find(
-                          (a) => a.id === pstate.selected,
-                        ) || (route === "image" ? images : videos)[0],
-                      )}
-                    </div>
-                  )}
-                </section>
-                <div
-                  className={route === "video" ? "video-layout" : "image-form"}
+                    <Film size={16} />
+                  )}{" "}
+                  Create
+                </button>
+                <button
+                  aria-pressed={creationWorkspace[route] === "comfy"}
+                  onClick={() => {
+                    chooseCreationWorkspace(route, "comfy");
+                  }}
                 >
-                  {route === "video" && (draft.mode || "image") === "image" && (
-                    <div className="source-column">
-                      <div className="source-preview">
-                        {source ? (
-                          <img
-                            src={
-                              "/api/assets/" +
-                              source.id +
-                              "/fit?profile_id=" +
-                              resolvedVideoProfile
-                            }
-                            alt="Source image fitted to the video canvas"
-                          />
-                        ) : (
-                          <div className="empty">
-                            <ImageIcon size={32} />
-                            <p>Choose the image to animate</p>
-                            <button onClick={() => importRef.current.click()}>
-                              <Upload size={16} />
-                              Import image
-                            </button>
-                          </div>
-                        )}
-                      </div>
-                      <label>
-                        Source image
-                        <select
-                          aria-label="Source image"
-                          value={draft.source || ""}
-                          onChange={(e) =>
-                            changeDraft({ source: e.target.value })
-                          }
-                        >
-                          <option value="">Choose from this project</option>
-                          {images.map((a) => (
-                            <option key={a.id} value={a.id}>
-                              {a.name}
-                            </option>
-                          ))}
-                        </select>
+                  <Boxes size={16} /> ComfyUI <small>Advanced</small>
+                </button>
+              </div>
+              {creationWorkspace[route] !== "comfy" && (
+                <header className="create-heading">
+                  <h1>
+                    {route === "image" ? "Create an image" : "Create a video"}
+                  </h1>
+                  <p>Your ideas, created and saved on this computer.</p>
+                </header>
+              )}
+              <div hidden={creationWorkspace[route] === "comfy"}>
+                {route === "image" && (
+                  <div
+                    className="tabs mode-tabs"
+                    role="group"
+                    aria-label="Image task"
+                  >
+                    <button
+                      className={!imageEditing ? "chosen" : ""}
+                      aria-pressed={!imageEditing}
+                      onClick={() => changeImageMode("create")}
+                    >
+                      Create new
+                    </button>
+                    <button
+                      className={imageEditing ? "chosen" : ""}
+                      aria-pressed={imageEditing}
+                      onClick={() => changeImageMode("edit")}
+                    >
+                      Edit existing
+                    </button>
+                  </div>
+                )}
+                {route === "video" && (
+                  <div className="tabs mode-tabs">
+                    <button
+                      className={
+                        (draft.mode || "image") === "image" ? "chosen" : ""
+                      }
+                      onClick={() =>
+                        changeDraft({ mode: "image", profile: "auto" })
+                      }
+                    >
+                      From image
+                    </button>
+                    <button
+                      className={draft.mode === "text" ? "chosen" : ""}
+                      onClick={() =>
+                        changeDraft({ mode: "text", profile: "auto" })
+                      }
+                    >
+                      From text
+                    </button>
+                  </div>
+                )}
+                <div className="visual-workbench">
+                  <div
+                    className={
+                      route === "video" ? "video-layout" : "image-form"
+                    }
+                  >
+                    <div className="creation-form">
+                      <label htmlFor="creation-prompt">
+                        {route === "image"
+                          ? imageEditing
+                            ? "Describe your changes"
+                            : "Describe your image"
+                          : videoHasAudio
+                            ? "Describe the motion and sound"
+                            : "Describe the motion"}
                       </label>
-                      <button
-                        className="text-link"
-                        onClick={() => importRef.current.click()}
-                      >
-                        <Upload size={15} />
-                        Change image
-                      </button>
-                      {source && (
-                        <p className="helper">
-                          Fit with borders, as previewed. Your original stays
-                          unchanged. The fitted image is passed into the video
-                          tool.
+                      <textarea
+                        id="creation-prompt"
+                        className="prompt"
+                        value={draft.prompt || ""}
+                        maxLength={
+                          route === "image"
+                            ? creationPromptLimit * 2
+                            : creationPromptLimit
+                        }
+                        aria-describedby={
+                          route === "image" ? "image-prompt-limit" : undefined
+                        }
+                        aria-invalid={promptOverLimit || undefined}
+                        onChange={(e) =>
+                          changeDraft({ prompt: e.target.value })
+                        }
+                        placeholder={
+                          route === "image"
+                            ? imageEditing
+                              ? "Change the background to a sunlit garden. Keep the subject and its details unchanged…"
+                              : "A cozy mountain cabin at sunset, warm light in the windows, surrounded by pine trees…"
+                            : videoHasAudio
+                              ? "The fox walks slowly beside the stream, then looks toward the camera. Birds sing softly."
+                              : "The fox walks slowly beside the stream, then looks toward the camera. Gentle camera movement."
+                        }
+                      />
+                      {route === "image" && (
+                        <p
+                          id="image-prompt-limit"
+                          className="helper prompt-limit"
+                          role={promptOverLimit ? "alert" : undefined}
+                        >
+                          {creationPromptLength} / {creationPromptLimit}{" "}
+                          characters
+                          {creationStyle &&
+                            ` · ${creationStyleReserve} reserved for the ${creationStyle.label} style`}
+                          {promptOverLimit &&
+                            (creationStyle
+                              ? " · Shorten your prompt, clear the style or choose another profile. Your draft is kept."
+                              : " · Shorten your prompt or choose another profile. Your draft is kept.")}
                         </p>
                       )}
-                    </div>
-                  )}
-                  <div className="creation-form">
-                    <label htmlFor="creation-prompt">
-                      {route === "image"
-                        ? "Describe your image"
-                        : videoHasAudio
-                          ? "Describe the motion and sound"
-                          : "Describe the motion"}
-                    </label>
-                    <textarea
-                      id="creation-prompt"
-                      className="prompt"
-                      value={draft.prompt || ""}
-                      maxLength={2500}
-                      onChange={(e) => changeDraft({ prompt: e.target.value })}
-                      placeholder={
-                        route === "image"
-                          ? "A cozy mountain cabin at sunset, warm light in the windows, surrounded by pine trees…"
-                          : videoHasAudio
-                            ? "The fox walks slowly beside the stream, then looks toward the camera. Birds sing softly."
-                            : "The fox walks slowly beside the stream, then looks toward the camera. Gentle camera movement."
-                      }
-                    />
-                    {route === "image" && (
-                      <div className="style-suggestions">
-                        {[
-                          "Photograph",
-                          "Illustration",
-                          "Product",
-                          "Cinematic",
-                        ].map((s) => (
-                          <button
-                            key={s}
-                            onClick={() =>
-                              changeDraft({
-                                prompt:
-                                  (draft.prompt || "") +
-                                  ", " +
-                                  s.toLowerCase() +
-                                  " style",
-                              })
-                            }
-                          >
-                            {s}
-                          </button>
-                        ))}
-                        <span className="helper">
-                          Prompt styles · illustrative previews
+                      <div className="generation-footer">
+                        <span
+                          className={
+                            creationSource ? "generation-source" : undefined
+                          }
+                          title={creationSource ? source?.name : undefined}
+                        >
+                          <span className="status-dot" />
+                          {creationSource
+                            ? `Source: ${source?.name || "Choose an image below"}`
+                            : "Runs on the Studio host"}
                         </span>
+                        <button
+                          ref={generateButton}
+                          className="primary generate"
+                          disabled={
+                            !draft.prompt?.trim() ||
+                            promptOverLimit ||
+                            Boolean(editSourceIssue) ||
+                            status.worker?.state === "stopped" ||
+                            Boolean(submittingTask)
+                          }
+                          onClick={guarded(generate)}
+                        >
+                          <Play size={16} />
+                          {submittingTask
+                            ? "Adding to queue…"
+                            : route === "image"
+                              ? imageEditing
+                                ? "Generate edit"
+                                : "Generate image"
+                              : "Generate video"}
+                        </button>
                       </div>
-                    )}
-                    <ModelChoice
-                      tools={tools}
-                      task={
-                        route === "video" && (draft.mode || "image") === "text"
-                          ? "video_text"
-                          : route
-                      }
-                      value={draft.profile || "auto"}
-                      defaultId={
-                        settings.defaults?.[
+                      {route === "image" && !imageEditing && (
+                        <div className="style-suggestions">
+                          {IMAGE_STYLES.map((style) => (
+                            <button
+                              key={style.id}
+                              type="button"
+                              aria-pressed={draft.style === style.id}
+                              onClick={() =>
+                                changeDraft({
+                                  style:
+                                    draft.style === style.id ? null : style.id,
+                                })
+                              }
+                            >
+                              {style.label}
+                            </button>
+                          ))}
+                          <span className="helper">
+                            {creationStyle
+                              ? `${creationStyle.label} · appended to your prompt as “${imageStylePhrase(creationStyle.id)}”`
+                              : "Prompt style · choose one, click again to clear"}
+                          </span>
+                        </div>
+                      )}
+                      <ModelChoice
+                        tools={tools}
+                        task={
                           route === "video" &&
                           (draft.mode || "image") === "text"
                             ? "video_text"
-                            : route
-                        ]
-                      }
-                      onChange={(profile) => changeDraft({ profile })}
-                      label="Creation profile"
-                      onSetup={() => {
-                        setSettingsTab("setup");
-                        setRoute("settings");
-                      }}
-                      details
-                    />
-                    {route === "video" && (
-                      <p className="helper">
-                        {(() => {
-                          const profile = taskProfiles(
-                            tools,
+                            : route === "image"
+                              ? imageRole
+                              : route
+                        }
+                        value={draft.profile || "auto"}
+                        defaultId={
+                          settings.defaults?.[
+                            route === "video" &&
                             (draft.mode || "image") === "text"
                               ? "video_text"
-                              : "video",
-                          ).find((item) => item.id === resolvedVideoProfile);
-                          return profile
-                            ? `${profile.width} × ${profile.height} · ${profile.fps} fps${profile.audio ? " · native stereo sound" : " · silent video"}.`
-                            : "Your selected tool defines the video settings.";
-                        })()}{" "}
-                        Preparation time is separate from clip length.
-                        Generation time varies.
-                      </p>
-                    )}
-                    <details>
-                      <summary>Advanced</summary>
-                      <label>
-                        Seed
-                        <input
-                          type="number"
-                          min="0"
-                          max="9007199254740991"
-                          value={draft.seed ?? settings.generation?.seed ?? 771}
-                          onChange={(e) =>
-                            changeDraft({ seed: e.target.value })
-                          }
-                        />
-                      </label>
-                      <p className="helper">
-                        The selected local package defines the supported
-                        settings. Changing a profile affects only your next
-                        request.
-                      </p>
-                    </details>
-                    <div className="generation-footer">
-                      <span>
-                        <span className="status-dot" />
-                        Runs on the Studio host
-                      </span>
-                      <button
-                        className="primary generate"
-                        disabled={
-                          !draft.prompt?.trim() || Boolean(submittingTask)
+                              : route === "image"
+                                ? imageRole
+                                : route
+                          ]
                         }
-                        onClick={guarded(generate)}
-                      >
-                        <Play size={16} />
-                        {submittingTask
-                          ? "Adding to queue…"
-                          : route === "image"
-                            ? "Generate image"
-                            : "Generate video"}
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-              <div className="section-heading">
-                <h2>{route === "image" ? "Your images" : "Your videos"}</h2>
-                <span className="helper">Every result is saved separately</span>
-              </div>
-              {(route === "image" ? images : videos).length ? (
-                <div className="results">
-                  {(route === "image" ? images : videos).map((a) => (
-                    <article key={a.id}>
-                      <button
-                        className="filmstrip-preview"
-                        aria-label={"Preview " + a.name}
-                        onClick={() => updateState({ selected: a.id })}
-                      >
-                        {a.kind === "image" ? (
-                          <img
-                            src={thumbnail(a)}
-                            alt={a.name}
-                            loading="lazy"
-                            decoding="async"
-                          />
-                        ) : (
-                          <video src={url(a)} preload="metadata" muted />
-                        )}
-                      </button>
-                      <div className="result-caption">
-                        <strong>{a.name}</strong>
-                        <span>
-                          {a.metadata.width} × {a.metadata.height}
-                          {a.metadata.duration
-                            ? " · " + a.metadata.duration.toFixed(2) + " s clip"
-                            : ""}
-                        </span>
-                      </div>
-                      {a.metadata.generation_seconds && (
+                        onChange={(profile) => changeDraft({ profile })}
+                        label="Creation profile"
+                        onSetup={() => {
+                          setRoute("model-setup");
+                        }}
+                        details
+                      />
+                      {route === "video" && (
                         <p className="helper">
-                          Created in {Math.round(a.metadata.generation_seconds)}{" "}
-                          seconds, including tool startup and saving.
+                          {(() => {
+                            const profile = taskProfiles(
+                              tools,
+                              (draft.mode || "image") === "text"
+                                ? "video_text"
+                                : "video",
+                            ).find((item) => item.id === resolvedVideoProfile);
+                            return profile
+                              ? `${profile.width} × ${profile.height} · ${profile.fps} fps${profile.audio ? " · native stereo sound" : " · silent video"}.`
+                              : "Your selected tool defines the video settings.";
+                          })()}{" "}
+                          Preparation time is separate from clip length.
+                          Generation time varies.
                         </p>
                       )}
-                      <details className="filmstrip-actions">
-                        <summary>Use this result</summary>
-                        {actionAsset(a)}
+                      <details>
+                        <summary>Advanced</summary>
+                        <label htmlFor="creation-seed">Seed</label>
+                        <div className="image-seed-control">
+                          <input
+                            id="creation-seed"
+                            type="number"
+                            min="0"
+                            max="9007199254740991"
+                            value={
+                              draft.seed ?? settings.generation?.seed ?? 771
+                            }
+                            onChange={(e) =>
+                              changeDraft({ seed: e.target.value })
+                            }
+                          />
+                          {route === "image" && (
+                            <button
+                              type="button"
+                              onClick={() =>
+                                changeDraft({
+                                  seed: newImageSeed(
+                                    draft.seed ??
+                                      settings.generation?.seed ??
+                                      771,
+                                  ),
+                                })
+                              }
+                            >
+                              <RefreshCw size={14} /> New seed
+                            </button>
+                          )}
+                        </div>
+                        {route === "image" && (
+                          <>
+                            <label htmlFor="creation-count">Count</label>
+                            <div className="image-count-control">
+                              <select
+                                id="creation-count"
+                                aria-describedby="creation-count-help"
+                                value={imageCount}
+                                onChange={(e) =>
+                                  changeDraft({
+                                    count: Number(e.target.value),
+                                  })
+                                }
+                              >
+                                {[1, 2, 3, 4].map((n) => (
+                                  <option key={n} value={n}>
+                                    {n}
+                                  </option>
+                                ))}
+                              </select>
+                              <span className="helper" id="creation-count-help">
+                                {imageCount === 1
+                                  ? "One request per Generate"
+                                  : imageSeeds
+                                    ? `${imageCount} separate requests with seeds ${imageSeeds.join(", ")}`
+                                    : `${imageCount} separate requests, counting up from a new seed`}
+                              </span>
+                            </div>
+                          </>
+                        )}
+                        <p className="helper">
+                          The selected local package defines the supported
+                          settings. Changing a profile affects only your next
+                          request.
+                        </p>
                       </details>
-                    </article>
-                  ))}
+                      {status.worker?.state === "stopped" && (
+                        <p className="helper" role="status">
+                          AI is paused. Prepare your draft now; generation
+                          becomes available when execution resumes.
+                        </p>
+                      )}
+                    </div>
+                    {(imageEditing ||
+                      (route === "video" &&
+                        (draft.mode || "image") === "image")) && (
+                      <div
+                        className={`source-column${imageEditing ? " image-edit-source" : ""}`}
+                      >
+                        <div className="source-preview">
+                          {source ? (
+                            <img
+                              src={
+                                imageEditing
+                                  ? url(source)
+                                  : "/api/assets/" +
+                                    source.id +
+                                    "/fit?profile_id=" +
+                                    resolvedVideoProfile
+                              }
+                              alt={
+                                imageEditing
+                                  ? "Original image to edit"
+                                  : "Source image fitted to the video canvas"
+                              }
+                            />
+                          ) : (
+                            <div className="empty">
+                              <ImageIcon size={32} />
+                              <p>
+                                {imageEditing
+                                  ? "Choose the image to edit"
+                                  : "Choose the image to animate"}
+                              </p>
+                              <button
+                                onClick={() =>
+                                  chooseImageImport(
+                                    imageEditing ? "image" : "video",
+                                  )
+                                }
+                              >
+                                <Upload size={16} />
+                                Import image
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                        <label>
+                          Source image
+                          <select
+                            aria-label="Source image"
+                            value={draft.source || ""}
+                            onChange={(e) =>
+                              changeDraft({ source: e.target.value })
+                            }
+                          >
+                            <option value="">Choose from this project</option>
+                            {draft.source && !source && (
+                              <option value={draft.source} disabled>
+                                Original image is unavailable
+                              </option>
+                            )}
+                            {editorImages.map((a) => (
+                              <option key={a.id} value={a.id}>
+                                {a.name}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+                        <button
+                          className="text-link"
+                          onClick={() =>
+                            chooseImageImport(imageEditing ? "image" : "video")
+                          }
+                        >
+                          <Upload size={15} />
+                          Change image
+                        </button>
+                        {imageEditing ? (
+                          <>
+                            <p className="helper">
+                              One source image · up to 4,194,304 pixels. Edits
+                              create a new 1024 × 1024 image in 40 steps. Your
+                              original stays unchanged.
+                            </p>
+                            {source && editSourceIssue && (
+                              <p className="notice" role="alert">
+                                {editSourceIssue}
+                              </p>
+                            )}
+                            {!source && draft.source && (
+                              <p className="notice" role="alert">
+                                The saved original is no longer in this project.
+                                Choose another image; your edit instructions are
+                                kept.
+                              </p>
+                            )}
+                          </>
+                        ) : (
+                          source && (
+                            <p className="helper">
+                              Fit with borders, as previewed. Your original
+                              stays unchanged. The fitted image is passed into
+                              the video tool.
+                            </p>
+                          )
+                        )}
+                      </div>
+                    )}
+                  </div>
+                  <section className="creation-canvas">
+                    <div className="canvas-topline">
+                      <span className="eyebrow">
+                        {route === "image" ? "IMAGE CANVAS" : "VIDEO PREVIEW"}
+                      </span>
+                      <span className="helper">
+                        Original assets · saved locally
+                      </span>
+                    </div>
+                    {(route === "image" ? images : videos)[0] ? (
+                      <Media
+                        asset={
+                          (route === "image" ? images : videos).find(
+                            (a) => a.id === pstate.selected,
+                          ) || (route === "image" ? images : videos)[0]
+                        }
+                      />
+                    ) : (
+                      <div className="canvas-empty">
+                        <div className="canvas-reticle">
+                          <ImageIcon size={42} />
+                        </div>
+                        <h2>
+                          {route === "image"
+                            ? "A place for your imagination."
+                            : "Your next moving story."}
+                        </h2>
+                        <p>
+                          {route === "image"
+                            ? "Describe an idea. Your original image will appear here."
+                            : "Choose a source and describe the motion. Your finished clip will appear here."}
+                        </p>
+                        <span className="eyebrow">CREATED ON YOUR MACHINE</span>
+                      </div>
+                    )}
+                    {(route === "image" ? images : videos)[0] && (
+                      <div className="canvas-actions">
+                        {actionAsset(
+                          (route === "image" ? images : videos).find(
+                            (a) => a.id === pstate.selected,
+                          ) || (route === "image" ? images : videos)[0],
+                        )}
+                      </div>
+                    )}
+                  </section>
                 </div>
-              ) : (
-                <div className="empty results-empty">
-                  <ImageIcon size={28} />
-                  <p>
-                    {route === "image"
-                      ? "Your first image will appear here."
-                      : "Your finished video will appear here. Sound depends on the selected model."}
-                  </p>
-                  <span>Saved to {project?.name || "your project"}</span>
+                <div className="section-heading">
+                  <h2>{route === "image" ? "Your images" : "Your videos"}</h2>
+                  <span className="helper">
+                    Every result is saved separately
+                  </span>
                 </div>
-              )}
+                {(route === "image" ? images : videos).length ? (
+                  <div className="results">
+                    {(route === "image" ? images : videos).map((a) => (
+                      <article key={a.id}>
+                        <button
+                          className="filmstrip-preview"
+                          aria-label={"Preview " + a.name}
+                          onClick={() => updateState({ selected: a.id })}
+                        >
+                          {a.kind === "image" ? (
+                            <img
+                              src={thumbnail(a)}
+                              alt={a.name}
+                              loading="lazy"
+                              decoding="async"
+                            />
+                          ) : (
+                            <video src={url(a)} preload="metadata" muted />
+                          )}
+                        </button>
+                        <div className="result-caption">
+                          <strong>{a.name}</strong>
+                          <span>
+                            {a.metadata.width} × {a.metadata.height}
+                            {a.metadata.duration
+                              ? " · " +
+                                a.metadata.duration.toFixed(2) +
+                                " s clip"
+                              : ""}
+                          </span>
+                        </div>
+                        {a.kind === "image" ? (
+                          <ImageTime asset={a} />
+                        ) : (
+                          a.metadata.generation_seconds && (
+                            <p className="helper">
+                              Created in{" "}
+                              {Math.round(a.metadata.generation_seconds)}{" "}
+                              seconds, including tool startup and saving.
+                            </p>
+                          )
+                        )}
+                        <details className="filmstrip-actions">
+                          <summary>Use this result</summary>
+                          {actionAsset(a)}
+                        </details>
+                      </article>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="empty results-empty">
+                    <ImageIcon size={28} />
+                    <p>
+                      {route === "image"
+                        ? "Your first image will appear here."
+                        : "Your finished video will appear here. Sound depends on the selected model."}
+                    </p>
+                    <span>Saved to {project?.name || "your project"}</span>
+                  </div>
+                )}
+              </div>
             </>
           )}
+          {comfyVisited && (
+            <div hidden={!comfyEnabled}>
+              <ComfyWorkspace
+                api={api}
+                enabled={comfyEnabled}
+                task={mediaTask}
+                project={project}
+                ensureProject={ensureProject}
+                assets={assets}
+                sourceId={editorSource?.id || ""}
+                prompt={pstate[mediaTask]?.prompt || ""}
+                onVideo={() =>
+                  openMediaTask(
+                    "video",
+                    editorImages.find((a) => a.id === pstate.selected) ||
+                      editorSource,
+                  )
+                }
+                onSourceChange={(source) =>
+                  updateState({
+                    selected: source,
+                    video: {
+                      ...current.current.state.video,
+                      source,
+                      mode: "image",
+                    },
+                  })
+                }
+              />
+            </div>
+          )}
           {route === "meetings" && (
-            <MeetingStudio key={project?.id} api={api} project={project} />
+            <MeetingStudio
+              key={project?.id}
+              api={api}
+              project={project}
+              onReadiness={(readiness) =>
+                setMeetingsReady(Boolean(readiness.ready))
+              }
+            />
           )}
           {route === "delivery" && project && (
             <DeliveryStudio
@@ -1596,13 +2629,35 @@ function App() {
           )}
           {route === "write" && (
             <>
-              <div className="eyebrow">03 / FIND YOUR WORDS</div>
-              <h1>Write your story</h1>
-              <p className="lead">
-                Start with your notes. Make the draft your own.
-              </p>
+              <header className="create-heading">
+                <h1>Write your story</h1>
+                <p>Start with your notes. Make the draft your own.</p>
+              </header>
               <div className="writing-layout">
                 <div className="panel writing-input">
+                  <label>
+                    Your notes
+                    <textarea
+                      value={draft.prompt || ""}
+                      maxLength={2500}
+                      onChange={(e) => changeDraft({ prompt: e.target.value })}
+                      placeholder="What should the reader know? Include real facts, audience and key points."
+                    />
+                  </label>
+                  <button
+                    className="primary"
+                    disabled={!draft.prompt?.trim() || Boolean(submittingTask)}
+                    onClick={guarded(generate)}
+                  >
+                    <PenLine size={16} />
+                    {submittingTask
+                      ? "Adding to queue…"
+                      : "Generate a new draft"}
+                  </button>
+                  <p className="helper">
+                    New drafts are separate revisions. Your edits will stay here
+                    until you choose a replacement.
+                  </p>
                   <ModelChoice
                     tools={tools}
                     task="write"
@@ -1611,8 +2666,7 @@ function App() {
                     onChange={(profile) => changeDraft({ profile })}
                     label="Writing model"
                     onSetup={() => {
-                      setSettingsTab("setup");
-                      setRoute("settings");
+                      setRoute("model-setup");
                     }}
                     details
                   />
@@ -1659,15 +2713,6 @@ function App() {
                       />
                     </label>
                   </div>
-                  <label>
-                    Your notes
-                    <textarea
-                      value={draft.prompt || ""}
-                      maxLength={2500}
-                      onChange={(e) => changeDraft({ prompt: e.target.value })}
-                      placeholder="What should the reader know? Include real facts, audience and key points."
-                    />
-                  </label>
                   <fieldset>
                     <legend>Use project context</legend>
                     {assets.slice(0, 12).map((a) => (
@@ -1693,20 +2738,6 @@ function App() {
                       see image pixels or watch videos.
                     </p>
                   </fieldset>
-                  <button
-                    className="primary"
-                    disabled={!draft.prompt?.trim() || Boolean(submittingTask)}
-                    onClick={guarded(generate)}
-                  >
-                    <PenLine size={16} />
-                    {submittingTask
-                      ? "Adding to queue…"
-                      : "Generate a new draft"}
-                  </button>
-                  <p className="helper">
-                    New drafts are separate revisions. Your edits will stay here
-                    until you choose a replacement.
-                  </p>
                 </div>
                 <div className="panel document">
                   <div className="document-toolbar">
@@ -1754,6 +2785,11 @@ function App() {
                     placeholder="Give your story a title"
                     onChange={(e) => changeDraft({ title: e.target.value })}
                   />
+                  {draft.sourceNote && (
+                    <p className="workspace-source-note">
+                      {draft.sourceNote} · original result retained
+                    </p>
+                  )}
                   <textarea
                     className="document-editor"
                     aria-label="Document editor"
@@ -1805,16 +2841,10 @@ function App() {
           )}
           {route === "page" && buildMode === "website" && (
             <>
-              <div className="eyebrow">04 / PUT IT TOGETHER</div>
-              <EditorialHero
-                compact
-                label="WEBSITE STUDIO"
-                title="Build your"
-                accent="website."
-              />
-              <p className="lead">
-                From a single idea to a connected set of pages.
-              </p>
+              <header className="create-heading">
+                <h1>Build your website</h1>
+                <p>From a single idea to a connected set of pages.</p>
+              </header>
               <WebsiteBuilder
                 key={project.id}
                 project={project}
@@ -1836,7 +2866,11 @@ function App() {
                 flush={flush}
                 onAssets={refreshAssets}
                 jobs={status.jobs}
-                onRunStarted={setSubmittedWebsite}
+                onRunStarted={(run) => {
+                  setSubmittedWebsite(run);
+                  setActivityTab("websites");
+                  setActivityOpen(true);
+                }}
                 reviewRequest={
                   requestedWebsiteReview?.project === project.id
                     ? requestedWebsiteReview
@@ -1848,16 +2882,10 @@ function App() {
           )}
           {route === "page" && buildMode === "single" && (
             <>
-              <div className="eyebrow">04 / PUT IT TOGETHER</div>
-              <EditorialHero
-                compact
-                label="WEBSITE STUDIO"
-                title="Build your"
-                accent="page."
-              />
-              <p className="lead">
-                Your real media. Your writing. Ready to take with you.
-              </p>
+              <header className="create-heading">
+                <h1>Build your page</h1>
+                <p>Your real media. Your writing. Ready to take with you.</p>
+              </header>
               <div className="template-picker">
                 {[
                   ["story", "Blog article"],
@@ -1876,13 +2904,7 @@ function App() {
                     }
                   >
                     <PanelsTopLeft size={24} />
-                    <span>
-                      {id === "page"
-                        ? "Build Website"
-                        : id === "write"
-                          ? "Writing"
-                          : label}
-                    </span>
+                    <span>{label}</span>
                   </button>
                 ))}
               </div>
@@ -1976,29 +2998,27 @@ function App() {
                   )}
                   <fieldset>
                     <legend>Selected media</legend>
-                    {assets
-                      .filter((a) => a.kind !== "text")
-                      .map((a) => (
-                        <label key={a.id} className="check-row">
-                          <input
-                            type="checkbox"
-                            checked={(page.assets || []).includes(a.id)}
-                            onChange={(e) =>
-                              updateState({
-                                page: {
-                                  ...page,
-                                  assets: e.target.checked
-                                    ? [...(page.assets || []), a.id]
-                                    : (page.assets || []).filter(
-                                        (x) => x !== a.id,
-                                      ),
-                                },
-                              })
-                            }
-                          />
-                          {a.name}
-                        </label>
-                      ))}
+                    {assets.filter(isPageMedia).map((a) => (
+                      <label key={a.id} className="check-row">
+                        <input
+                          type="checkbox"
+                          checked={(page.assets || []).includes(a.id)}
+                          onChange={(e) =>
+                            updateState({
+                              page: {
+                                ...page,
+                                assets: e.target.checked
+                                  ? [...(page.assets || []), a.id]
+                                  : (page.assets || []).filter(
+                                      (x) => x !== a.id,
+                                    ),
+                              },
+                            })
+                          }
+                        />
+                        {a.name}
+                      </label>
+                    ))}
                   </fieldset>
                   <label>
                     Section order
@@ -2048,16 +3068,10 @@ function App() {
           )}
           {route === "tools" && (
             <>
-              <div className="creation-identity">
-                <EditorialHero
-                  label="CREATION TOOLS"
-                  title="Powerful AI tools"
-                  accent="running locally."
-                >
-                  Everything you need to imagine, create and share.
-                </EditorialHero>
-                <MachineStatus gpu={status.gpu} active={active.length > 0} />
-              </div>
+              <header className="create-heading">
+                <h1>Models</h1>
+                <p>Compatible local models, weights and pinned runtimes.</p>
+              </header>
               <h2 className="editorial-section-title">
                 Your creative toolkit.
               </h2>
@@ -2121,8 +3135,7 @@ function App() {
                         className="text-link"
                         onClick={guarded(async () => {
                           if (t.state !== "ready") {
-                            setSettingsTab("setup");
-                            setRoute("settings");
+                            setRoute("model-setup");
                             return;
                           }
                           const destination = t.capabilities?.includes(
@@ -2164,7 +3177,7 @@ function App() {
                             GPU memory required
                             <strong>
                               {t.compatibility.required_vram_gib
-                                ? `${t.compatibility.required_vram_gib} GB`
+                                ? `${t.compatibility.required_vram_gib} GiB`
                                 : "Not yet qualified"}
                             </strong>
                           </span>
@@ -2174,7 +3187,7 @@ function App() {
                               {Number.isFinite(
                                 t.compatibility.detected_vram_gib,
                               )
-                                ? `${t.compatibility.detected_vram_gib.toFixed(0)} GB`
+                                ? `${t.compatibility.detected_vram_gib.toFixed(0)} GiB`
                                 : "Unavailable"}
                             </strong>
                           </span>
@@ -2195,35 +3208,42 @@ function App() {
                           <p key={p.id}>{p.label}</p>
                         ))}
                         <p className="helper">
-                          Hardware execution evidence is recorded in the local
-                          verification report. Installed does not mean loaded.
+                          Installed tools load into GPU memory when you use
+                          them.
                         </p>
                       </details>
                     </article>
                   ))}
                 </div>
-                <div className="panel">
-                  <h3>GPU details</h3>
-                  <p>{status.gpu.message}</p>
-                  {status.gpu.total > 0 && (
-                    <p className="helper">
-                      Driver readings:{" "}
-                      {(status.gpu.used / 1024 ** 3).toFixed(1)} GiB used /{" "}
-                      {(status.gpu.total / 1024 ** 3).toFixed(1)} GiB total.
-                    </p>
-                  )}
-                </div>
               </details>
             </>
           )}
-          {route === "settings" && (
+          {(route === "settings" ||
+            route === "system" ||
+            MODEL_TABS[route]) && (
             <StudioSettings
               api={api}
               report={report}
               onToolsRefresh={async () => setTools(await api("/tools"))}
               settings={settings}
               modelMemory={status.model_memory}
-              initialTab={settingsTab}
+              scope={MODEL_TABS[route] ? "models" : "workspace"}
+              initialTab={
+                MODEL_TABS[route] ||
+                (route === "system" ? "system" : "preferences")
+              }
+              onTabChange={(tab) =>
+                setRoute(
+                  MODEL_TABS[route]
+                    ? Object.keys(MODEL_TABS).find(
+                        (key) => MODEL_TABS[key] === tab,
+                      ) || "tools"
+                    : tab === "system"
+                      ? "system"
+                      : "settings",
+                )
+              }
+              onSetup={() => setRoute("model-setup")}
               tools={tools}
               gpu={status.gpu}
               onSave={async (value) => {
@@ -2262,42 +3282,79 @@ function App() {
         onChange={guarded((e) => {
           const file = e.target.files?.[0];
           e.target.value = "";
-          return importImage(file);
+          return importImage(file, importDestination.current);
         })}
       />
-      <WebsiteNotifications
-        api={api}
-        enabled={ready}
-        jobs={status.jobs}
-        submitted={submittedWebsite}
-        report={report}
-        onQueue={() => setQueueOpen(true)}
-        onReview={async (run) => {
-          await openProject(run.project, "page");
-          updateState({ buildMode: "website" });
-          setRequestedWebsiteReview(run);
-          setQueueOpen(false);
-        }}
-      />
-      {queueOpen && (
-        <aside className="queue-panel" aria-label="Creation queue">
-          <div className="section-heading">
-            <h2>Creation queue</h2>
-            <button
-              aria-label="Close queue"
-              onClick={() => setQueueOpen(false)}
-            >
-              <X size={20} />
-            </button>
-          </div>
+      {handoff && (
+        <TransferReview
+          key={`${handoff.project_id}:${handoff.target}:${handoff.asset_id || handoff.filename}`}
+          source={handoff}
+          onApply={applyHandoff}
+          onClose={() => setHandoff(null)}
+        />
+      )}
+      {readingResult && (
+        <SavedResultReader
+          result={readingResult}
+          projectName={project?.name}
+          onClose={() => setReadingResult(null)}
+          onHandoff={guarded(prepareHandoff)}
+        />
+      )}
+      {recipesOpen && (
+        <WorkspaceDialog
+          title="Recipes"
+          wide
+          onClose={() => setRecipesOpen(false)}
+        >
+          <Recipes
+            project={project}
+            api={api}
+            onUse={useRecipe}
+            report={report}
+          />
+        </WorkspaceDialog>
+      )}
+      <aside
+        id="studio-activity"
+        className="queue-panel activity-panel"
+        aria-label="Activity"
+        hidden={!queueOpen}
+      >
+        <div className="section-heading">
+          <h2>Activity</h2>
+          <button
+            aria-label="Close activity"
+            onClick={() => setQueueOpen(false)}
+          >
+            <X size={20} />
+          </button>
+        </div>
+        <div className="tabs activity-tabs" aria-label="Activity sections">
+          <button
+            className={activityTab === "queue" ? "chosen" : ""}
+            onClick={() => setActivityTab("queue")}
+          >
+            Queue{active.length ? ` (${active.length})` : ""}
+          </button>
+          <button
+            className={activityTab === "completed" ? "chosen" : ""}
+            onClick={() => setActivityTab("completed")}
+          >
+            Completed{activityUnread ? ` (${activityUnread})` : ""}
+          </button>
+          <button
+            className={activityTab === "websites" ? "chosen" : ""}
+            onClick={() => setActivityTab("websites")}
+          >
+            Website reviews{websitePending ? ` (${websitePending})` : ""}
+          </button>
+        </div>
+        <section hidden={activityTab !== "queue"} aria-label="Creation queue">
+          <h3>Creation queue</h3>
           <p className="helper">
             One creation tool at a time. Editing and exporting remain available.
           </p>
-          <GpuActivity
-            gpu={status.gpu}
-            samples={gpuSamples}
-            details={settings.appearance?.show_gpu_details ?? true}
-          />
           {settings.appearance?.compact_queue && (
             <button
               className="text-link"
@@ -2310,22 +3367,41 @@ function App() {
           )}
           {jobsToShow.length ? (
             jobsToShow.map((j) => (
-              <article className="queue-job" key={j.id}>
+              <article
+                className={`queue-job${j.id === focusedQueueJob?.id ? " queue-job-focused" : ""}`}
+                key={j.id}
+                data-job-id={j.id}
+                tabIndex={j.id === focusedQueueJob?.id ? -1 : undefined}
+                ref={j.id === focusedQueueJob?.id ? queueFocusCard : undefined}
+                aria-label={
+                  j.id === focusedQueueJob?.id ? "Opened queue task" : undefined
+                }
+              >
+                {j.id === focusedQueueJob?.id && (
+                  <small className="queue-opened-marker">
+                    Opened task · {project?.name}
+                  </small>
+                )}
                 <div className="section-heading">
                   <strong>
                     {j.request.website_run
                       ? j.request.task === "image"
                         ? "Website artwork"
                         : "Website writing"
-                      : j.request.task === "write"
-                        ? "Writing"
-                        : j.request.task === "image"
-                          ? "Image"
-                          : j.request.task === "meeting"
-                            ? "Meeting transcription"
-                            : "Video"}
+                      : j.request.agent_run_id
+                        ? "Agent step"
+                        : j.request.chat_id
+                          ? j.request.task === "image"
+                            ? "Conversation image"
+                            : "Conversation reply"
+                          : {
+                              write: "Writing",
+                              image: "Image",
+                              video: "Video",
+                              meeting: "Meeting transcription",
+                            }[j.request.task] || "Saved task"}
                   </strong>
-                  <span className="badge">{j.state}</span>
+                  <span className="badge">{stateLabel(j.state)}</span>
                 </div>
                 {ACTIVE.includes(j.state) ? (
                   <div className="queue-phase">
@@ -2350,9 +3426,24 @@ function App() {
                     {j.state === "queued" && j.message && (
                       <small>{j.message}</small>
                     )}
+                    <QueueEstimate estimate={j.estimate} />
                   </div>
                 ) : (
-                  <p role="status">{j.message}</p>
+                  <>
+                    <p role="status">{j.message}</p>
+                    {j.state === "completed" && (
+                      <>
+                        <PerformanceSummary metrics={j.performance} />
+                        <ImageTime asset={j.result} />
+                      </>
+                    )}
+                  </>
+                )}
+                {["failed", "interrupted"].includes(j.state) && (
+                  <Diagnostics
+                    api={api}
+                    endpoint={`/jobs/${j.id}/diagnostics`}
+                  />
                 )}
                 <div className="actions">
                   {ACTIVE.includes(j.state) && (
@@ -2368,7 +3459,8 @@ function App() {
                     </button>
                   )}
                   {["failed", "cancelled"].includes(j.state) &&
-                    !j.request.website_run && (
+                    !j.request.website_run &&
+                    !j.request.chat_id && (
                       <button
                         onClick={guarded(async () => {
                           await api("/jobs/" + j.id + "/retry", {});
@@ -2377,6 +3469,13 @@ function App() {
                       >
                         <RefreshCw size={13} />
                         Retry same request
+                      </button>
+                    )}
+                  {["failed", "cancelled"].includes(j.state) &&
+                    j.request.chat_id && (
+                      <button onClick={guarded(() => openQueueItem(j))}>
+                        <MessageSquare size={13} />
+                        Open conversation
                       </button>
                     )}
                   {j.request.website_run && (
@@ -2391,7 +3490,7 @@ function App() {
                       Open website builder
                     </button>
                   )}
-                  {j.state === "failed" && j.request.task === "video" && (
+                  {j.recoverable && (
                     <button
                       onClick={guarded(async () => {
                         await api("/jobs/" + j.id + "/recover", {});
@@ -2403,11 +3502,7 @@ function App() {
                     </button>
                   )}
                   {j.asset && (
-                    <button
-                      onClick={guarded(() =>
-                        openProject(j.project, "projects"),
-                      )}
-                    >
+                    <button onClick={guarded(() => openQueueItem(j))}>
                       View result <ArrowRight size={13} />
                     </button>
                   )}
@@ -2424,8 +3519,49 @@ function App() {
               </p>
             </div>
           )}
-        </aside>
-      )}
+        </section>
+        <section
+          hidden={activityTab !== "completed"}
+          aria-label="Completed activity"
+        >
+          <CompletionInbox
+            embedded
+            onUnread={setActivityUnread}
+            project={project}
+            api={api}
+            onOpen={openWorkspaceTarget}
+            report={report}
+          />
+        </section>
+        <section
+          hidden={activityTab !== "websites"}
+          aria-label="Website reviews"
+        >
+          <h3>Website reviews</h3>
+          <WebsiteNotifications
+            embedded
+            onClose={() => setActivityOpen(false)}
+            onPending={setWebsitePending}
+            api={api}
+            enabled={ready}
+            jobs={status.jobs}
+            submitted={submittedWebsite}
+            report={report}
+            onQueue={() => setQueueOpen(true)}
+            onReview={async (run) => {
+              await openProject(run.project, "page");
+              updateState({ buildMode: "website" });
+              setRequestedWebsiteReview(run);
+              setQueueOpen(false);
+            }}
+          />
+          {!submittedWebsite && !websitePending && (
+            <p className="helper">
+              Finished website drafts and updates appear here for review.
+            </p>
+          )}
+        </section>
+      </aside>
     </div>
   );
 }

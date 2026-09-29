@@ -566,6 +566,22 @@ body {
 :root .studio-shell .home-quick button svg:last-child {
   margin-left: auto;
 }
+/* A package that still needs setup is offered here, not as a fifth creative tile. */
+:root .studio-shell .home-quick .quick-setup {
+  margin-top: 8px;
+  padding-top: 10px;
+  border-top: 1px solid var(--studio-border);
+}
+:root .studio-shell .home-quick .quick-setup span {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  text-align: left;
+}
+:root .studio-shell .home-quick .quick-setup small {
+  font-size: 11px;
+  color: var(--studio-text-muted);
+}
 :root .studio-shell .creative-actions {
   width: calc(100% - 405px);
   display: grid;
@@ -813,6 +829,11 @@ body {
 }
 :root .studio-shell .agents-studio,
 :root .studio-shell .mcp-connections,
+:root .studio-shell .meeting-setup-notice {
+  display: block;
+  overflow-wrap: anywhere;
+}
+
 :root .studio-shell .meeting-studio {
   max-width: none;
   width: 100%;
@@ -1354,6 +1375,10 @@ body {
 :root .studio-shell .creative-home .home-quick button svg:last-child {
   display: none;
 }
+:root .studio-shell .creative-home .home-quick .quick-setup {
+  grid-column: 1/-1;
+  flex-wrap: nowrap;
+}
 :root .studio-shell .creative-home .creative-project-grid {
   grid-template-columns: repeat(7, minmax(0, 1fr));
 }
@@ -1556,6 +1581,10 @@ body {
   background-position: 30% 50%;
   background-color: #514222;
 }
+:root .studio-shell .style-suggestions button[aria-pressed="true"] {
+  box-shadow: inset 0 0 0 2px var(--studio-gold-bright);
+  color: var(--studio-gold-bright);
+}
 :root .studio-shell .style-suggestions .helper {
   grid-column: 1/-1;
 }
@@ -1692,7 +1721,10 @@ body {
   grid-template-columns: 38px minmax(0, 1fr);
   gap: 14px;
 }
-:root .studio-shell .default-model > div:last-child {
+/* Only the Settings default-model rows (title, description, model choice)
+   use the two-column grid; SystemDetails reuses .default-model with several
+   helper paragraphs that must flow normally. */
+:root .studio-shell .default-model > .default-model-fields {
   display: grid;
   grid-template-columns: 220px minmax(0, 1fr);
   column-gap: 20px;
@@ -1704,10 +1736,12 @@ body {
   font-size: 15px;
 }
 :root .studio-shell .default-model > div > p {
-  grid-column: 1;
-  grid-row: 2;
   font-size: 12px;
   margin: 6px 0;
+}
+:root .studio-shell .default-model > .default-model-fields > p {
+  grid-column: 1;
+  grid-row: 2;
 }
 :root .studio-shell .default-model .model-choice {
   grid-column: 2;
@@ -1732,13 +1766,13 @@ body {
   padding: 22px;
 }
 @media (max-width: 1366px) {
-  :root .studio-shell .default-model > div:last-child {
+  :root .studio-shell .default-model > .default-model-fields {
     grid-template-columns: 150px minmax(0, 1fr);
     column-gap: 12px;
   }
 }
 @media (max-width: 850px) {
-  :root .studio-shell .default-model > div:last-child {
+  :root .studio-shell .default-model > .default-model-fields {
     display: block;
   }
 }
@@ -1850,15 +1884,6 @@ body {
 :root .studio-shell.route-write .document .document-footer {
   color: #64685d;
 }
-/* One visible hardware summary per workspace. Compact tools fall back to the rail. */
-@media (min-width: 1151px) {
-  :root
-    .studio-shell:is(.route-image, .route-video, .route-chat, .route-tools)
-    .sidebar
-    .hardware {
-    display: none;
-  }
-}
 :root .studio-shell.route-settings .settings-aside .detected-hardware {
   display: none;
 }
@@ -1911,5 +1936,141 @@ body {
   }
   .studio-shell .product-attribution span {
     display: none;
+  }
+}
+
+/* Create begins with its prompt and action; previews and options follow. */
+:root .studio-shell .create-heading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 6px 20px;
+  margin: 12px 0 16px;
+}
+:root .studio-shell .create-heading h1 {
+  margin: 0;
+  font: 500 clamp(26px, 2.4vw, 36px) / 1.2 var(--studio-display);
+}
+:root .studio-shell .create-heading p {
+  margin: 0;
+  color: var(--studio-text-muted);
+  font-size: 13px;
+}
+:root .studio-shell:is(.route-image, .route-video) .visual-workbench {
+  grid-template-columns: minmax(300px, 0.9fr) minmax(0, 1.3fr);
+}
+:root .studio-shell .visual-workbench :is(.image-form, .video-layout) {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  padding: 16px;
+}
+:root .studio-shell .visual-workbench .generation-footer {
+  margin: 10px 0 20px;
+  gap: 8px;
+}
+:root .studio-shell .visual-workbench .generation-footer > span {
+  order: 1;
+}
+:root .studio-shell .visual-workbench .generation-source {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+:root .studio-shell .visual-workbench .prompt {
+  min-height: 110px;
+}
+:root .studio-shell .writing-layout {
+  grid-template-columns: minmax(300px, 0.9fr) minmax(0, 1.3fr);
+}
+:root .studio-shell .writing-input > .primary,
+:root .studio-shell .site-brief > .primary {
+  width: 100%;
+  min-height: 44px;
+}
+:root .studio-shell .site-brief > label:first-of-type {
+  margin-bottom: 12px;
+}
+:root .studio-shell .creation-workspace-tabs,
+:root .studio-shell .build-tabs {
+  margin: 0 0 10px;
+}
+:root .studio-shell .creation-status {
+  padding: 10px 12px;
+  margin-bottom: 12px;
+}
+@media (max-width: 850px) {
+  :root .studio-shell:is(.route-image, .route-video) .visual-workbench,
+  :root .studio-shell .writing-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  :root .studio-shell .create-heading {
+    display: block;
+    margin: 10px 0 14px;
+  }
+  :root .studio-shell .create-heading p {
+    margin-top: 6px;
+  }
+}
+:root .studio-shell .visual-workbench .style-suggestions {
+  grid-template-columns: repeat(auto-fit, minmax(90px, 1fr));
+}
+/* One activity surface and one host GPU widget across workspaces. */
+:root .studio-shell .activity-panel[hidden],
+:root .studio-shell .activity-panel section[hidden] {
+  display: none;
+}
+:root .studio-shell .activity-panel {
+  width: min(460px, 100vw);
+  max-width: 100vw;
+}
+:root .studio-shell .activity-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-bottom: 16px;
+}
+:root .studio-shell .activity-tabs button {
+  padding: 8px 10px;
+  font-size: 12px;
+}
+:root .studio-shell .activity-unread {
+  color: var(--studio-gold);
+}
+:root .studio-shell .completion-inbox.embedded .completion-inbox-panel,
+:root .studio-shell .website-feedback.embedded {
+  position: static;
+  width: 100%;
+  max-width: 100%;
+  max-height: none;
+  box-shadow: none;
+  margin: 0;
+  overflow: visible;
+}
+:root .studio-shell .creative-home {
+  grid-template-columns: minmax(0, 1fr) 280px;
+}
+:root .studio-shell .creative-home .creative-journey {
+  grid-row: 1 / 4;
+}
+:root .studio-shell .creative-home .cinematic-hero {
+  min-height: 250px;
+}
+:root .studio-shell .settings-layout {
+  grid-template-columns: minmax(0, 1fr) 280px;
+}
+@media (max-width: 1150px) {
+  :root .studio-shell .creative-home {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  :root .studio-shell .creative-home .creative-journey {
+    grid-row: auto;
+    grid-column: 1;
+  }
+}
+@media (max-width: 850px) {
+  :root .studio-shell .settings-layout {
+    grid-template-columns: minmax(0, 1fr);
   }
 }

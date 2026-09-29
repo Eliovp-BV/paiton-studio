@@ -1,0 +1,109 @@
+.model-api-studio {
+  min-width: 0;
+}
+.model-api-studio button {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+.model-api-status {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  margin-bottom: 20px;
+}
+.model-api-status > svg {
+  color: var(--studio-gold);
+  flex-shrink: 0;
+}
+.model-api-status > div {
+  flex: 1;
+}
+.model-api-status p {
+  font-size: 13px;
+  color: var(--muted);
+  line-height: 1.7;
+}
+.model-api-status small {
+  display: block;
+  line-height: 1.7;
+}
+.model-api-columns {
+  display: grid;
+  grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr);
+  gap: 20px;
+  align-items: start;
+}
+.model-api-columns > section {
+  min-width: 0;
+}
+.model-api-columns h2 {
+  margin: 12px 0 20px;
+}
+.model-api-columns p {
+  font-size: 13px;
+  line-height: 1.8;
+}
+.model-api-columns .helper {
+  font-size: 12px;
+}
+.model-api-token {
+  margin: 25px 0;
+  padding: 16px;
+  border: 1px solid var(--studio-border);
+  border-radius: 8px;
+}
+.model-api-studio .actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.model-api-studio form {
+  margin-top: 25px;
+  border-top: 1px solid var(--studio-border);
+  padding-top: 20px;
+}
+.model-api-studio form small {
+  display: block;
+  margin-top: 10px;
+}
+.model-api-clients {
+  display: flex;
+  gap: 7px;
+  margin-bottom: 15px;
+}
+.model-api-clients [aria-pressed="true"] {
+  color: var(--studio-gold);
+  border-color: var(--studio-gold);
+}
+.model-api-config {
+  padding: 15px;
+  max-height: 390px;
+  overflow: auto;
+  font-size: 11px;
+  border: 1px solid var(--studio-border);
+  border-radius: 8px;
+  background: var(--studio-surface);
+}
+.model-api-contract {
+  margin-top: 20px;
+}
+.model-api-contract p {
+  font-size: 12px;
+  line-height: 1.8;
+}
+.model-api-contract code {
+  overflow-wrap: anywhere;
+}
+@media (max-width: 900px) {
+  .model-api-columns {
+    grid-template-columns: 1fr;
+  }
+  .model-api-status {
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+  .model-api-status > div {
+    flex-basis: 75%;
+  }
+}

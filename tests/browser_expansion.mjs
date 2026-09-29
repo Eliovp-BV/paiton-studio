@@ -1,4 +1,4 @@
-import { chromium } from "playwright";
+import { chromium } from "./browser_support.mjs";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 const browser = await chromium.launch({
@@ -11,10 +11,12 @@ const page = await browser.newPage({
 });
 const errors = [];
 page.on("pageerror", (error) => errors.push(error.message));
-const studioUrl = process.env.STUDIO_URL || "http://127.0.0.1:8888";
+const studioUrl = process.env.STUDIO_URL;
 fs.mkdirSync(".local", { recursive: true });
 await page.goto(studioUrl);
-await page.getByRole("heading", { name: "Create without the cloud." }).waitFor();
+await page
+  .getByRole("heading", { name: "Create without the cloud." })
+  .waitFor();
 // This suite creates a manually authored website fixture. It never starts inference.
 // Prefer an isolated worker-disabled Studio instance; original preferences are restored.
 const originalSettings = await page.evaluate(async () =>
@@ -56,7 +58,7 @@ try {
       form.append(
         "file",
         await (await fetch("/api/assets/" + sourceId)).blob(),
-        "real-source-verification.png",
+        "synthetic-source-verification.png",
       );
       const result = await fetch("/api/projects/" + project.id + "/import", {
         method: "POST",
@@ -65,7 +67,7 @@ try {
       });
       if (!result.ok)
         throw Error(
-          "Could not copy the real source image into the verification project.",
+          "Could not copy the synthetic source image into the verification project.",
         );
     }
     localStorage.setItem("studio-project", project.id);
@@ -76,11 +78,13 @@ try {
     .getByRole("navigation", { name: "Main navigation" })
     .getByRole("button", { name: "Home", exact: true })
     .click();
-  await page.getByRole("heading", { name: "Create without the cloud." }).waitFor();
+  await page
+    .getByRole("heading", { name: "Create without the cloud." })
+    .waitFor();
   if (!fixture.hasImage) {
     assert.ok(
       process.env.STUDIO_TEST_IMAGE,
-      "An existing real image or STUDIO_TEST_IMAGE is required; no image is simulated.",
+      "An existing synthetic image or STUDIO_TEST_IMAGE is required; use the harness image fixture.",
     );
     await page
       .locator("input[type=file]")
@@ -99,23 +103,39 @@ try {
   await page.waitForFunction(
     () => document.querySelector(".source-preview img")?.naturalWidth > 0,
   );
-  await page
-    .getByRole("navigation", { name: "Main navigation" })
-    .getByRole("button", { name: "Write", exact: true })
-    .click();
+  await page.evaluate(() => {
+    location.hash = "write";
+  });
   await page.getByLabel("Writing model", { exact: true }).waitFor();
   const options = await page
     .getByLabel("Writing model", { exact: true })
     .locator("option")
     .allTextContents();
+  // Options lead with the outcome-first package name; the technical package
+  // string (quantisation, draft model) moved to each option's title.
+  const technical = await page
+    .getByLabel("Writing model", { exact: true })
+    .locator("option")
+    .evaluateAll((items) => items.map((item) => item.title));
   assert.ok(options[0].includes("Recommended automatically"));
-  assert.ok(options.some((text) => text.includes("Qwen3.8")));
-  assert.ok(!options.some((text) => /FLUX|MiniMax|Website plan/.test(text)));
-  await page.getByRole("button", { name: "Settings", exact: true }).click();
+  assert.ok(technical.some((text) => text.includes("Qwen3.8")));
+  assert.ok(
+    ![...options, ...technical].some((text) =>
+      /FLUX|MiniMax|Website plan/.test(text),
+    ),
+  );
+  await page.evaluate(() => {
+    location.hash = "model-defaults";
+  });
   await page.getByRole("heading", { name: "Default creation tools" }).waitFor();
   await page
     .getByLabel("Writing model", { exact: true })
     .selectOption("qwen38-writing");
+  await page.getByRole("button", { name: "Save preferences" }).click();
+  await page.getByText("Preferences saved on the Studio host.").waitFor();
+  await page.evaluate(() => {
+    location.hash = "settings";
+  });
   await page.getByLabel("Compact queue history").check();
   await page.getByRole("button", { name: "Save preferences" }).click();
   await page.getByText("Preferences saved on the Studio host.").waitFor();
@@ -123,7 +143,11 @@ try {
     path: ".local/ui-expansion-settings.png",
     fullPage: true,
   });
-  await page.getByRole("button", { name: "Studio wiki", exact: true }).click();
+  await page.getByRole("button", { name: "Settings", exact: true }).click();
+  await page
+    .locator("main .settings-tabs")
+    .getByRole("button", { name: "Studio wiki", exact: true })
+    .click();
   await page.getByRole("heading", { name: "Studio wiki" }).waitFor();
   await page.getByLabel("Search the wiki").fill("first frame");
   assert.ok(
@@ -131,10 +155,9 @@ try {
       (await page.getByText("No articles found").count()),
   );
   await page.getByLabel("Search the wiki").fill("");
-  await page
-    .getByRole("navigation", { name: "Main navigation" })
-    .getByRole("button", { name: "Build Page", exact: true })
-    .click();
+  await page.evaluate(() => {
+    location.hash = "page";
+  });
   await page.getByRole("button", { name: "Full website", exact: true }).click();
   await page
     .getByLabel("What would you like to build?")
@@ -242,7 +265,10 @@ try {
     ),
     "Website has mobile overflow",
   );
-  await page.getByRole("button", { name: "Settings", exact: true }).click();
+  await page.evaluate(() => {
+    location.hash = "model-defaults";
+  });
+  await page.getByLabel("Writing model", { exact: true }).waitFor();
   assert.equal(
     await page.getByLabel("Writing model", { exact: true }).inputValue(),
     "qwen38-writing",
@@ -253,7 +279,11 @@ try {
     ),
     "Settings has mobile overflow",
   );
-  await page.getByRole("button", { name: "Studio wiki", exact: true }).click();
+  await page.getByRole("button", { name: "Settings", exact: true }).click();
+  await page
+    .locator("main .settings-tabs")
+    .getByRole("button", { name: "Studio wiki", exact: true })
+    .click();
   assert.ok(
     await page.evaluate(
       () => document.documentElement.scrollWidth <= window.innerWidth,
@@ -307,9 +337,9 @@ try {
   await compatibilityPage
     .getByRole("heading", { name: "Create without the cloud." })
     .waitFor();
-  await compatibilityPage
-    .getByRole("button", { name: "Settings", exact: true })
-    .click();
+  await compatibilityPage.evaluate(() => {
+    location.hash = "model-defaults";
+  });
   const compatibilitySelect = compatibilityPage.getByLabel(
     "Image creation model",
     { exact: true },
@@ -334,7 +364,7 @@ try {
       passed: true,
       fixtureProject: fixture.id,
       checks: [
-        "real image import and fitting",
+        "synthetic image import and fitting",
         "Qwen3.8 compatible writing choice",
         "exclude video/image/website profiles from writing",
         "persisted settings",

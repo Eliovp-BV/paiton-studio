@@ -122,6 +122,32 @@ def test_cancellation_during_preflight_keeps_chat_ready(tmp_path,monkeypatch):
     finally:worker._drop_warm()
 
 
+def test_until_released_policy_still_yields_to_another_queued_tool(tmp_path,monkeypatch):
+    """No idle expiry never blocks a queued request that needs the GPU for another tool."""
+    from studio.registry import profile
+    from studio.runtime import Runtime
+    store=Store(tmp_path/'data');project=store.create_project()['id'];lock=tmp_path/'gpu.lock'
+    monkeypatch.setattr(queue,'gpu_lease',lambda:Lease(lock));monkeypatch.setattr(queue,'gpu_status',lambda:{'available':True,'supported':True})
+    runtime=Runtime(store,{'gptoss_image':'pinned-image'});runtime.configure_memory_policy(-1)
+    stops=[]
+    monkeypatch.setattr(runtime,'command',lambda *a,**k:pytest.fail('No Docker call is allowed.'))
+    monkeypatch.setattr(runtime,'stop',lambda container:stops.append(container))
+    monkeypatch.setattr(runtime,'preflight',lambda request:'pinned-image')
+    def run(job):
+        path=store.root/'fixture.txt';path.write_text('CPU fixture');return 'text',path,{}
+    monkeypatch.setattr(runtime,'run',run)
+    runtime._warm=dict(package='gptoss',revision='revision',image='pinned-image',container='owned-fixture',since=time.monotonic()-7*24*3600)
+    worker=queue.Worker(store,runtime);worker._warm_lease=Lease(lock);assert worker._warm_lease.acquire()
+    assert not runtime.warm_expired() and runtime.memory_status()['retained_model']['state']=='ready'
+    job=store.enqueue(project,{'task':'image','profile':profile('image-standard','image'),'prompt':'fixture','seed':1})
+    worker._run_job(job)
+    assert stops==['owned-fixture'] and store.job(job['id'])['state']=='completed'
+    assert not runtime.warm_live() and worker._warm_lease is None
+    other=Lease(lock)
+    try:assert other.acquire()
+    finally:other.close()
+
+
 def test_switch_stop_failure_requires_recovery_and_keeps_lease(tmp_path,monkeypatch):
     store,project,lock,runtime,worker=ready(tmp_path,monkeypatch)
     worker._run_job(store.enqueue(project,{'task':'write','chat':True}))

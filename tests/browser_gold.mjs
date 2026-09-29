@@ -1,7 +1,7 @@
 // Real API navigation/persistence checks on an isolated worker-disabled Studio.
-import { chromium } from "playwright";
+import { chromium } from "./browser_support.mjs";
 import assert from "node:assert/strict";
-const base = process.env.STUDIO_TEST_URL || "http://127.0.0.1:8897";
+const base = process.env.STUDIO_TEST_URL;
 assert.notEqual(new URL(base).port, "8877");
 const browser = await chromium.launch({
   headless: true,
@@ -21,10 +21,10 @@ try {
   await page.waitForTimeout(900);
   await page.goto(base + "/#home");
   await page
-    .locator(".home-idea input")
+    .locator(".topbar .studio-command input")
     .fill("A quiet forest in morning light");
   await page
-    .locator(".home-idea .command-menu")
+    .locator(".topbar .command-menu")
     .getByRole("button", { name: /Create an image/ })
     .click();
   assert.equal(
@@ -74,7 +74,7 @@ try {
       assert.equal(overflow, false, `${route}: overflow at ${width}`);
       if (route === "home" && width > 1150) {
         const hardware = await page
-          .locator(".creative-journey .machine-details")
+          .locator(".sidebar .engine-details")
           .boundingBox();
         assert.ok(
           hardware.y + hardware.height <= height + 1,
@@ -92,6 +92,7 @@ try {
   await page.setViewportSize({ width: 1920, height: 1080 });
   await page.goto(base + "/#settings");
   await page
+    .locator("main")
     .getByRole("button", { name: "System & drivers", exact: true })
     .click();
   await page
@@ -99,7 +100,7 @@ try {
     .waitFor();
   await page.goto(base + "/#home");
   await page
-    .getByRole("button", { name: /^Queue/ })
+    .getByRole("button", { name: "Activity", exact: true })
     .first()
     .click();
   await page.getByRole("heading", { name: /Creation queue/ }).waitFor();

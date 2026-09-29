@@ -61,7 +61,7 @@ def gpu_status(sys_root=Path('/sys')):
         totals = [_number(p) for p in cards]
         used = [_number(p.with_name('mem_info_vram_used')) for p in cards]
         if not cards or any(t is None or t <= 0 for t in totals) or any(u is None or u < 0 for u in used) or any(u > t for t, u in zip(totals, used) if t is not None and u is not None):
-            return {**result, 'message': 'GPU memory availability could not be checked.'}
+            return {**result, 'retryable': True, 'message': 'GPU memory availability could not be checked. Studio will check again.'}
         # No pooled-memory claim: current adapters have no multi-device dispatch.
         result.update(total=int(totals[0]) if len(cards) == 1 else None,
                       used=int(used[0]) if len(cards) == 1 else None)
@@ -94,4 +94,4 @@ def gpu_status(sys_root=Path('/sys')):
             message = 'Studio needs one identifiable Radeon GPU for these local adapters.'
         return {**result, 'available': available, 'supported': supported, 'message': message}
     except (OSError, ValueError):
-        return {**result, 'message': 'GPU availability could not be checked.'}
+        return {**result, 'retryable': True, 'message': 'GPU availability could not be checked. Studio will check again.'}

@@ -184,6 +184,11 @@ class SystemInfo:
                 self._sampled = time.monotonic()
             return deepcopy(self._cached)
 
+    def cached(self):
+        """Use already collected facts in diagnostics without starting probes."""
+        with self._lock:
+            return deepcopy(self._cached or {})
+
     def _collect(self):
         system, release = platform.system(), platform.release()
         try:

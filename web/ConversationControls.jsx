@@ -1,9 +1,11 @@
 import React from "react";
+import { weightsLabel, kvCacheLabel } from "./modelSelection";
 import "./conversationControls.css";
 
 export const defaultConversation = {
   context_mode: "short",
   reuse_cache: false,
+  weights: "mxfp4",
 };
 
 export default function ConversationControls({
@@ -11,6 +13,8 @@ export default function ConversationControls({
   onChange,
   disabled = false,
   pending = false,
+  component,
+  technical,
 }) {
   const longer = value.context_mode !== "short";
   const extra = value.context_mode === "extra_long";
@@ -34,6 +38,7 @@ export default function ConversationControls({
           disabled={disabled}
           onChange={(e) =>
             onChange({
+              ...value,
               context_mode: e.target.checked ? "long" : "short",
               reuse_cache: false,
             })
@@ -51,7 +56,7 @@ export default function ConversationControls({
         </span>
         <input
           type="checkbox"
-          checked={value.reuse_cache}
+          checked={extra || value.reuse_cache}
           disabled={disabled || !longer || extra}
           onChange={(e) =>
             onChange({ ...value, reuse_cache: e.target.checked })
@@ -63,11 +68,37 @@ export default function ConversationControls({
       )}
       {extra && (
         <p className="helper">
-          Cache reuse is unavailable with the released 200K profile.
+          Extra-long context enables conversation cache reuse automatically.
         </p>
       )}
       <details>
         <summary>Advanced &amp; technical details</summary>
+        {component && (
+          <label className="conversation-option">
+            <span>
+              <strong>Weights for this chat</strong>
+              <small>
+                Saved with each reply. Changing weights reloads the model.
+              </small>
+            </span>
+            <select
+              aria-label="Weights for this chat"
+              value={value.weights || "mxfp4"}
+              disabled={disabled}
+              onChange={(event) =>
+                onChange({ ...value, weights: event.target.value })
+              }
+            >
+              <option value="mxfp4">MXFP4</option>
+              <option
+                value="w3a4"
+                disabled={!component.verified && value.weights !== "w3a4"}
+              >
+                W3A4 3-bit{!component.verified ? " · verification needed" : ""}
+              </option>
+            </select>
+          </label>
+        )}
         <label className="conversation-option">
           <span>
             <strong>Extra-long context</strong>
@@ -79,37 +110,61 @@ export default function ConversationControls({
           <input
             type="checkbox"
             checked={extra}
-            disabled={disabled || value.reuse_cache}
+            disabled={disabled}
             onChange={(e) =>
               onChange({
+                ...value,
                 context_mode: e.target.checked ? "extra_long" : "long",
                 reuse_cache: false,
+                weights: value.weights || "mxfp4",
               })
             }
           />
         </label>
-        {value.reuse_cache && (
-          <p>
-            Turn off cache reuse before choosing Extra-long context. The stock
-            GDN APC configuration is not qualified for 200K.
-          </p>
-        )}
         <dl>
           <dt>Model context ceiling</dt>
           <dd>
             {extra ? "200,000" : longer ? "65,536" : "8,192"} tokens, including
             the reply
           </dd>
-          <dt>Backend / GPU cache</dt>
-          <dd>
-            {value.reuse_cache
-              ? "Stock vLLM GDN · APC on · align"
-              : "Compact native GDN · APC off · none"}
-          </dd>
-          <dt>Reserved KV cache</dt>
-          <dd>{extra ? "8" : "5"} GiB · one request · 4,096-token chunks</dd>
-          <dt>Tool parser</dt>
-          <dd>Corrected qwen3_xml in every mode</dd>
+          <dt>Weights</dt>
+          <dd>{weightsLabel(value)}</dd>
+          {technical && (
+            <>
+              <dt>Backend / GPU cache</dt>
+              <dd>
+                {technical.gdn_backend} · APC{" "}
+                {(technical.prefix_caching ?? value.reuse_cache) ? "on" : "off"}{" "}
+                · {technical.mamba_cache_mode}
+              </dd>
+              {kvCacheLabel(technical) && (
+                <>
+                  <dt>KV cache precision</dt>
+                  <dd>{kvCacheLabel(technical)}</dd>
+                </>
+              )}
+              <dt>Reserved KV cache</dt>
+              <dd>
+                {Number(technical.kv_cache_gib).toLocaleString(undefined, {
+                  maximumFractionDigits: 2,
+                })}{" "}
+                GiB · {technical.sequence_limit} request ·{" "}
+                {Number(technical.prefill_chunk).toLocaleString()}-token chunks
+              </dd>
+              {technical.aggregate_kv_tokens != null && (
+                <>
+                  <dt>Total KV capacity</dt>
+                  <dd>
+                    {Number(technical.aggregate_kv_tokens).toLocaleString()}{" "}
+                    tokens across the cache; the per-request ceiling above still
+                    applies.
+                  </dd>
+                </>
+              )}
+              <dt>Tool parser</dt>
+              <dd>{technical.tool_parser}</dd>
+            </>
+          )}
         </dl>
         <p>
           Exact token counts include instructions, documents and tools. A

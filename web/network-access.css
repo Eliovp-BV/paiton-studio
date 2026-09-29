@@ -1,0 +1,65 @@
+.pairing-startup,
+.pairing-overlay {
+  display: grid;
+  place-items: center;
+  min-height: 100dvh;
+  padding: 24px;
+  box-sizing: border-box;
+}
+.pairing-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  overflow: auto;
+  background: #090b09f5;
+}
+.pairing-card {
+  width: min(100%, 520px);
+  box-sizing: border-box;
+}
+.pairing-card form {
+  display: grid;
+  gap: 16px;
+}
+.pairing-card label,
+.pairing-token label {
+  display: grid;
+  gap: 8px;
+}
+.pairing-card input,
+.pairing-token input {
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+.network-access .preference-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+.network-access .preference-row small {
+  display: block;
+  margin-top: 6px;
+}
+.network-access .preference-row input {
+  flex: 0 0 auto;
+  width: auto;
+}
+.network-access ul {
+  list-style: none;
+  padding: 0;
+}
+.network-access li {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin: 12px 0;
+}
+.network-access li span {
+  overflow-wrap: anywhere;
+  min-width: 0;
+}
+.pairing-token {
+  margin-top: 16px;
+}

@@ -1,0 +1,135 @@
+.result-handoffs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  margin: 10px 0;
+}
+.result-handoffs button {
+  font-size: 12px;
+  padding: 7px 10px;
+}
+.result-handoffs.compact {
+  margin: 0;
+}
+.workspace-dialog-backdrop {
+  position: fixed;
+  inset: 0;
+  background: #000b;
+  z-index: 150;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+.workspace-dialog {
+  width: min(680px, 100%);
+  max-height: 90dvh;
+  overflow: auto;
+  background: var(--panel, #131612);
+  color: var(--text, #eee);
+  border: 1px solid var(--studio-border, #464839);
+  border-radius: 16px;
+  padding: 22px;
+  box-shadow: 0 24px 80px #0008;
+}
+.workspace-dialog.wide {
+  width: min(1050px, 100%);
+}
+.workspace-dialog > header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 15px;
+  margin-bottom: 16px;
+}
+.workspace-dialog > header h2 {
+  margin: 0;
+  font-size: 22px;
+}
+.workspace-dialog > header button {
+  flex-shrink: 0;
+}
+.workspace-dialog pre {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  max-height: 40vh;
+  overflow: auto;
+  padding: 14px;
+  border: 1px solid #ffffff1a;
+  border-radius: 9px;
+  font:
+    12px/1.7 ui-monospace,
+    monospace;
+}
+.workspace-dialog textarea {
+  width: 100%;
+  min-height: 160px;
+  box-sizing: border-box;
+}
+.workspace-dialog img {
+  max-width: 100%;
+  max-height: 32vh;
+  object-fit: contain;
+}
+.workspace-dialog label {
+  display: grid;
+  gap: 6px;
+  margin: 12px 0;
+}
+.workspace-dialog p {
+  line-height: 1.65;
+  overflow-wrap: anywhere;
+}
+.workspace-dialog .actions {
+  flex-wrap: wrap;
+  margin-top: 16px;
+}
+.workspace-incoming {
+  padding: 12px;
+  border: 1px solid #b49858;
+  border-radius: 10px;
+  margin: 12px 0;
+  font-size: 12px;
+}
+.workspace-incoming p {
+  margin: 5px 0;
+  line-height: 1.6;
+}
+.workspace-incoming .actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.workspace-source-note {
+  font-size: 12px;
+  color: var(--muted, #b7b9b0);
+  overflow-wrap: anywhere;
+}
+.gpt-turn.search-destination {
+  outline: 1px solid #d2b775;
+  outline-offset: 8px;
+  border-radius: 8px;
+}
+.studio-workspace-tools {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin: 0 0 18px;
+}
+.studio-workspace-tools > button {
+  font-size: 12px;
+  padding: 8px 12px;
+}
+@media (max-width: 600px) {
+  .workspace-dialog-backdrop {
+    padding: 9px;
+  }
+  .workspace-dialog {
+    padding: 15px;
+    max-height: 94dvh;
+  }
+  .workspace-dialog .actions > button {
+    flex: 1 1 auto;
+  }
+}

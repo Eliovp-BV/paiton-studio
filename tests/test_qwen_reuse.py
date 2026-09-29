@@ -29,6 +29,7 @@ def qwen_runtime(tmp_path,monkeypatch):
     monkeypatch.setattr(runtime,'chat_source',lambda *a:([],{}))
     monkeypatch.setattr(runtime,'warm_owns_gpu',lambda *a:True)
     monkeypatch.setattr(runtime,'wait_ready',lambda *a:None)
+    runtime.warm_seconds=120  # A short fixture horizon keeps the clock arithmetic readable.
     state=SimpleNamespace(store=store,runtime=runtime,worker=worker,clock=clock,
                           starts=[],stops=[],bodies=[],tokenized=[],token_count=100,
                           mode='complete',lock=tmp_path/'gpu.lock')
@@ -102,6 +103,45 @@ def test_writing_website_writing_reuses_model_with_fresh_project_context(qwen_ru
     other=Lease(state.lock)
     try:assert not other.acquire()  # Ready model retains exclusive admission.
     finally:other.close()
+
+
+def test_finished_metadata_separates_cold_load_warm_reuse_and_stream_rate(qwen_runtime,monkeypatch):
+    state=qwen_runtime
+    project=state.store.create_project()['id']
+    ready_calls=[]
+    def ready(*args):
+        ready_calls.append(args)
+        state.clock[0]+=5 if len(ready_calls)==1 else .25
+    monkeypatch.setattr(state.runtime,'wait_ready',ready)
+    command=state.runtime.command
+    def measured(args,**kwargs):
+        result=command(args,**kwargs)
+        if args[0]=='exec':
+            identity=state.bodies[-1][0]
+            path=state.store.root/'jobs'/identity/'writing-result.json'
+            response=json.loads(path.read_text())
+            response.update(usage={'completion_tokens':12},timing={
+                'first_token_seconds':2,'decode_seconds':4,'total_seconds':6})
+            path.write_text(json.dumps(response))
+            state.clock[0]+=6
+        return result
+    monkeypatch.setattr(state.runtime,'command',measured)
+    for expected_state,load in (('cold',5),('warm',.25)):
+        job=state.store.enqueue(project,request())
+        state.worker._run_job(job)
+        saved=state.store.job(job['id'])
+        assert saved['state']=='completed'
+        metadata=state.store.asset(saved['asset'])['metadata']
+        metrics=metadata['performance']
+        assert metrics['model_state']==expected_state
+        assert metrics['load_seconds']==load
+        assert metrics['request_seconds']==6 and metrics['turn_seconds']==load+6
+        assert metrics['first_token_seconds']==2 and metrics['output_seconds']==4
+        assert metrics['output_tokens']==12 and metrics['tokens_per_second']==3
+        assert metadata['generation_seconds']==load+6
+        assert metadata['usage']=={'completion_tokens':12}
+        assert metadata['timing']['decode_seconds']==4
+    assert len(state.starts)==1
 
 
 def test_qwen_reuse_does_not_expand_model_roles(qwen_runtime):

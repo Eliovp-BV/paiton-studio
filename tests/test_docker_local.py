@@ -1,7 +1,9 @@
 """All process calls are mocked; locality tests never contact a Docker daemon."""
 import io
 import json
+import os
 import subprocess
+import types
 
 import pytest
 
@@ -150,7 +152,9 @@ def test_runtime_and_setup_share_captured_endpoint_for_commands_and_streams(tmp_
         calls.append((command, kwargs))
         return Process(kwargs.get('text', False))
     monkeypatch.setattr(runtime_module.subprocess, 'Popen', popen)
-    runtime.stream({'id': 'unused'}, ['start', '-a', 'owned-container'])
+    project = runtime.store.create_project('Local endpoint fixture')
+    job = runtime.store.enqueue(project['id'], {'task': 'write'})
+    runtime.stream(job, ['start', '-a', 'owned-container'])
     setup.run(['docker', 'pull', 'pinned-image'], None)
     setup.run(['docker', 'build', '/local/recipe'], None)
     assert len(calls) == 4
@@ -229,3 +233,21 @@ def test_stop_confirms_missing_after_owned_removal(tmp_path):
     runtime.command = command
     runtime.stop('owned-id')
     assert removed and calls[-1][0] == 'inspect'
+
+
+def test_job_containers_drop_capabilities_and_privilege_escalation(tmp_path, monkeypatch):
+    store = Store(tmp_path)
+    job = store.enqueue(store.create_project()['id'], {'profile': {'package': 'h3'}})
+    runtime = Runtime(store, {})
+    calls = []
+    runtime.command = lambda args, **kw: calls.append(args) or subprocess.CompletedProcess(args, 0, 'container-id\n', '')
+    real_stat = os.stat
+    monkeypatch.setattr(os, 'stat', lambda path, *args, **kwargs: types.SimpleNamespace(st_gid=44)
+                        if str(path) == '/dev/kfd' else real_stat(path, *args, **kwargs))
+    container, _ = runtime.start(job, 'image:tag', ['main.py'])
+    create = calls[0]
+    assert container == 'container-id' and create[0] == 'create'
+    assert create[create.index('--cap-drop') + 1] == 'ALL'
+    assert create[create.index('--security-opt') + 1] == 'no-new-privileges'
+    assert create[create.index('--network') + 1] == 'none' and '--init' in create
+    assert create[create.index('--group-add') + 1] == '44'

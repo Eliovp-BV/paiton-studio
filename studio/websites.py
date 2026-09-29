@@ -154,6 +154,8 @@ class Websites:
 
     def _enqueue(self, db, project, request):
         identity, now = uid(), time.time()
+        if hasattr(self.store, 'prepare_request'):
+            request = self.store.prepare_request(request)
         db.execute('INSERT INTO jobs(id,project,request,state,message,created,updated) VALUES(?,?,?,?,?,?,?)',
                    (identity, project, json.dumps(request), 'queued', 'Waiting for the creation tool.', now, now))
         return identity

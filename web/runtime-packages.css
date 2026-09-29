@@ -1,0 +1,99 @@
+.runtime-library-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 20px;
+  margin: 18px 0;
+  padding: 14px;
+  background: var(--studio-surface-raised, #26271d);
+  color: var(--studio-text, #f3f3ef);
+  border-radius: 10px;
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+.runtime-packages .runtime-library-search label {
+  display: flex;
+  flex-direction: row;
+  justify-content: flex-start;
+  align-items: center;
+  gap: 7px;
+}
+.runtime-library-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  margin: 12px 0;
+}
+.runtime-library-filters button {
+  font-size: 12px;
+}
+.runtime-library-filters button[aria-pressed="true"] {
+  background: #34382f;
+  color: #fff;
+  border-color: #34382f;
+}
+.runtime-model-state {
+  font-size: 13px;
+  margin: 10px 0;
+}
+.runtime-empty {
+  padding: 20px 0;
+}
+.runtime-package-card {
+  border-top: 1px solid var(--studio-border, #ffffff13);
+  padding: 22px 0;
+}
+.runtime-package-card h3 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.runtime-current,
+.runtime-package-card code {
+  overflow-wrap: anywhere;
+}
+.runtime-package-controls {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+.runtime-package-controls select {
+  flex: 1;
+  min-width: 0;
+}
+.runtime-package-controls button {
+  flex-shrink: 0;
+}
+.runtime-package-card details {
+  margin-top: 12px;
+}
+.runtime-package-card code {
+  display: block;
+  font-size: 12px;
+  margin: 8px 0;
+  white-space: normal;
+}
+.runtime-download-status {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 12px 0;
+  font-size: 13px;
+}
+@media (max-width: 650px) {
+  .runtime-package-controls,
+  .runtime-download-status {
+    align-items: stretch;
+    flex-direction: column;
+  }
+  .runtime-package-card .section-heading {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 8px;
+  }
+}
+
+.runtime-pinned-versions {
+  margin: 0.25rem 0 0.5rem;
+  padding-left: 1.2rem;
+  font-size: 0.92rem;
+}

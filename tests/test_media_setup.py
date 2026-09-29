@@ -35,7 +35,7 @@ class Manager:
 
 
 def test_all_integrated_models_have_pinned_install_recipes():
-    assert {key for key,p in PACKAGES.items() if p['can_install']} == {'flux','h3','qwen38','qwen38-mxfp4','qwen-coder','gptoss','wan','fastwan','minicpm5-2b'}
+    assert {key for key,p in PACKAGES.items() if p['can_install']} == {'qwen-image21','qwen-image21-uncensored','flux','h3','qwen38','qwen38-mxfp4','qwen-coder','gptoss','wan','fastwan','minicpm5-2b'}
     assert all('@sha256:' in p['image'] for p in PACKAGES.values() if p['can_install'] and p['installer'] not in ('wan','fastwan'))
     assert all(PACKAGES[key]['installer']==key and PACKAGES[key]['image'] is None for key in ('wan','fastwan'))
     assert sum(item['bytes'] for item in H3['files']) == 35917312271
@@ -53,6 +53,7 @@ def test_h3_setup_builds_from_pinned_public_source_and_never_loads_gpu(tmp_path)
     probe = next(command for command, _ in manager.calls if command[1] == 'run')
     assert probe[probe.index('--network')+1] == 'none'
     assert '--read-only' in probe and 'first_frame' in probe[-1]
+    assert probe[probe.index('--cap-drop')+1] == 'ALL' and probe[probe.index('--security-opt')+1] == 'no-new-privileges'
     assert setup_media.SETUP_OWNER_LABEL+'=studio-test-owner' in probe
     assert len(manager.downloads) == len(H3['source_files'])+len(H3['files'])
     assert all(str(destination).startswith(str(tmp_path)) for _, destination, _, _ in manager.downloads)
@@ -115,6 +116,7 @@ def test_flux_preparation_holds_shared_lease_and_publishes_only_verified_tensors
     create = next(command for command, _ in manager.calls if command[1] == 'create')
     assert create[create.index('--network')+1] == 'none'
     assert '--device' in create and 'HF_HUB_OFFLINE=1' in create
+    assert create[create.index('--cap-drop')+1] == 'ALL' and create[create.index('--security-opt')+1] == 'no-new-privileges'
     assert 'type=bind,src='+str(source)+',dst=/source,readonly' in create
     assert create[-7:] == [FLUX['tools_image'], '-m', 'sdnq_tool.convert', '--snapshot', '/source', '--output', '/prepared/runtime']
     stop = next((command, current_job) for command, current_job in manager.calls if command[1] == 'stop')

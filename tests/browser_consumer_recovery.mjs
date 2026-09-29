@@ -1,6 +1,6 @@
 // Intercepted consumer-flow regressions. Every API request is local fixture data:
 // no live project writes, downloads, GPU jobs, or simulated inference claims.
-import { chromium } from "playwright";
+import { chromium } from "./browser_support.mjs";
 import assert from "node:assert/strict";
 
 const base = process.env.STUDIO_URL || "http://127.0.0.1:8897";
@@ -112,8 +112,22 @@ async function fixture(name, run, { empty = false } = {}) {
           generation: { seed: 771 },
           storage: {},
         };
+      else if (path === "/api/inbox" && method === "GET")
+        body = { events: [], unread: 0, has_more: false, limit: 100 };
+      else if (path === "/api/meetings/readiness" && method === "GET")
+        body = { ready: false };
       else if (path === "/api/host-guidance" && method === "GET")
         body = { needs_attention: false, checks: [] };
+      else if (
+        /^\/api\/projects\/[a-f0-9]{32}\/brief$/.test(path) &&
+        method === "GET"
+      )
+        body = {
+          project: path.split("/")[3],
+          content: "",
+          revision: 0,
+          updated: null,
+        };
       else if (path === "/api/projects" && method === "GET")
         body = state.projects;
       else if (path === "/api/projects" && method === "POST") {

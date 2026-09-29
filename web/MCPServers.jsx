@@ -1,9 +1,8 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   ArrowLeft,
   ArrowRight,
   Plus,
-  Mail,
   FileText,
   Brain,
   PenLine,
@@ -12,8 +11,412 @@ import {
   ShieldCheck,
   Download,
   Bot,
+  Code2,
+  Copy,
+  Eye,
+  EyeOff,
+  ExternalLink,
+  CircleHelp,
 } from "lucide-react";
-import MailMCP from "./MailMCP";
+import "./mcp-connections.css";
+
+const CLIENTS = [
+  {
+    id: "vscode",
+    name: "VS Code",
+    file: ".vscode/mcp.json",
+    docs: "https://code.visualstudio.com/docs/agent-customization/mcp-servers",
+  },
+  {
+    id: "cursor",
+    name: "Cursor",
+    file: ".cursor/mcp.json",
+    docs: "https://cursor.com/docs/mcp",
+  },
+  {
+    id: "generic",
+    name: "Other MCP app",
+    file: "your app’s MCP configuration",
+    docs: "https://modelcontextprotocol.io/docs/develop/connect-remote-servers",
+  },
+];
+
+async function copyText(value) {
+  try {
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(value);
+      return true;
+    }
+  } catch {
+    // Clipboard permissions can be denied, including on a Studio HTTP LAN URL.
+  }
+  const previous = document.activeElement;
+  const field = document.createElement("textarea");
+  field.value = value;
+  field.readOnly = true;
+  field.style.position = "fixed";
+  field.style.left = "-9999px";
+  document.body.appendChild(field);
+  try {
+    field.select();
+    return document.execCommand("copy");
+  } catch {
+    return false;
+  } finally {
+    field.remove();
+    previous?.focus();
+  }
+}
+
+function ClientConnection({ server, api, base, disabled, issuedToken }) {
+  const [client, setClient] = useState("vscode");
+  const [credential, setCredential] = useState("prompt");
+  const [token, setToken] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [notice, setNotice] = useState("");
+  const [error, setError] = useState("");
+  const [manual, setManual] = useState(null);
+  const active = useRef(true);
+  const allowed = useRef(false);
+  allowed.current = server.enabled && !disabled;
+  useEffect(() => {
+    active.current = true;
+    return () => {
+      active.current = false;
+    };
+  }, []);
+  const chosen = CLIENTS.find((item) => item.id === client);
+  const name = `paiton-${server.id}`;
+  const inputId = `paiton_${server.id}_token`;
+  const envName = `PAITON_MCP_${server.id.toUpperCase()}_TOKEN`;
+  const endpoint = `${location.origin}/mcp/agents/`;
+  const usePrompt = client === "vscode" && credential === "prompt";
+  const reference = usePrompt
+    ? "${input:" + inputId + "}"
+    : client === "generic"
+      ? "PASTE_SERVER_TOKEN"
+      : "${env:" + envName + "}";
+  const entry = {
+    ...(client === "vscode" ? { type: "http" } : {}),
+    url: endpoint,
+    headers: { Authorization: `Bearer ${reference}` },
+  };
+  const configuration =
+    client === "vscode"
+      ? {
+          servers: { [name]: entry },
+          ...(usePrompt
+            ? {
+                inputs: [
+                  {
+                    id: inputId,
+                    type: "promptString",
+                    description: `Access token for ${server.definition.name}`,
+                    password: true,
+                  },
+                ],
+              }
+            : {}),
+        }
+      : { mcpServers: { [name]: entry } };
+  const json = JSON.stringify(configuration, null, 2);
+  const blocked = !server.enabled || disabled || busy;
+
+  async function copy(value, label, secret = false) {
+    if (!allowed.current) return;
+    setManual(null);
+    if (secret) setToken("");
+    const copied = await copyText(value);
+    if (!active.current || !allowed.current) return;
+    setNotice(
+      copied
+        ? `${label} copied.`
+        : "Your browser blocked clipboard access. Select the text below and copy it manually.",
+    );
+    if (!copied) setManual({ value, label, secret });
+  }
+  async function accessToken(reveal) {
+    if (!allowed.current || busy) return;
+    setBusy(true);
+    setError("");
+    setNotice("");
+    setManual(null);
+    try {
+      if (!issuedToken)
+        throw Error(
+          "This token is no longer visible. Choose Rotate server token to create one for this app.",
+        );
+      const data = {
+        mcpServers: {
+          [name]: { headers: { Authorization: "Bearer " + issuedToken } },
+        },
+      };
+      if (!active.current || !allowed.current) return;
+      const authorization = data?.mcpServers?.[name]?.headers?.Authorization;
+      if (
+        typeof authorization !== "string" ||
+        !authorization.startsWith("Bearer ") ||
+        authorization.length <= 7
+      )
+        throw Error(
+          "Studio did not return a valid server token. Enable the server and try again.",
+        );
+      const value = authorization.slice(7);
+      if (reveal) setToken(value);
+      else await copy(value, "Server token", true);
+    } catch (failure) {
+      if (active.current) setError(failure.message);
+    } finally {
+      if (active.current) setBusy(false);
+    }
+  }
+  function download() {
+    if (!allowed.current) return;
+    const url = URL.createObjectURL(
+      new Blob([json + "\n"], { type: "application/json" }),
+    );
+    const link = document.createElement("a");
+    link.href = url;
+    link.download =
+      client === "vscode"
+        ? "paiton-vscode-mcp.json"
+        : client === "cursor"
+          ? "paiton-cursor-mcp.json"
+          : "paiton-agent-mcp.json";
+    link.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    setNotice(
+      "Configuration downloaded. It contains a token placeholder, not your access token.",
+    );
+  }
+
+  return (
+    <section
+      className="mcp-client-config mcp-connect-guide"
+      aria-label="Connect an editor"
+    >
+      <span className="eyebrow">CONNECT YOUR EDITOR</span>
+      <h3>Use this server where you work</h3>
+      <div className="mcp-client-choices" role="group" aria-label="MCP client">
+        {CLIENTS.map((item) => (
+          <button
+            key={item.id}
+            aria-pressed={client === item.id}
+            onClick={() => {
+              setClient(item.id);
+              setNotice("");
+              setManual(null);
+              setToken("");
+            }}
+          >
+            {item.name}
+          </button>
+        ))}
+      </div>
+      <p className="mcp-client-status">
+        <CircleHelp size={14} />
+        {server.enabled
+          ? "Client connection unverified"
+          : "Enable this server to connect an editor"}
+      </p>
+      {client === "vscode" && (
+        <label className="mcp-credential-choice">
+          Token setup
+          <select
+            aria-label="Token setup"
+            value={credential}
+            onChange={(event) => {
+              setCredential(event.target.value);
+              setManual(null);
+              setNotice("");
+            }}
+          >
+            <option value="prompt">Secure prompt · VS Code Chat</option>
+            <option value="environment">
+              Environment variable · remote / Agent Host
+            </option>
+          </select>
+        </label>
+      )}
+      <ol className="mcp-connect-steps">
+        <li>
+          <strong>Add the configuration</strong>
+          <p>
+            {client === "generic" ? (
+              <>
+                Add a Streamable HTTP server in your app using this endpoint and
+                an Authorization header. JSON support varies by client.
+              </>
+            ) : (
+              <>
+                Merge this configuration into <code>{chosen.file}</code> in your
+                project. Keep any existing servers.
+              </>
+            )}
+          </p>
+        </li>
+        <li>
+          <strong>
+            {usePrompt
+              ? "Paste your token when VS Code asks"
+              : client === "generic"
+                ? "Add the server token"
+                : "Set the token in your editor’s environment"}
+          </strong>
+          <p>
+            {usePrompt ? (
+              <>
+                Copy the token below. VS Code prompts for it when the server
+                starts and stores it securely.
+              </>
+            ) : client === "generic" ? (
+              <>
+                Replace <code>PASTE_SERVER_TOKEN</code> in your private
+                configuration with the copied token.
+              </>
+            ) : (
+              <>
+                Set <code>{envName}</code> in the environment where{" "}
+                {chosen.name} runs, then restart its MCP connection. For
+                Remote-SSH, use the remote environment.
+              </>
+            )}
+          </p>
+        </li>
+        <li>
+          <strong>Check the connection in {chosen.name}</strong>
+          <p>
+            {client === "vscode" ? (
+              <>
+                Run <code>MCP: List Servers</code>, select <code>{name}</code>,
+                then start it and check its output. A successful tool listing
+                confirms the connection.
+              </>
+            ) : (
+              <>
+                Open your app’s MCP settings and verify that the server’s tools
+                are listed. Studio cannot confirm your client’s connection from
+                this page.
+              </>
+            )}
+          </p>
+        </li>
+      </ol>
+      <label>
+        MCP endpoint
+        <input readOnly value={endpoint} />
+      </label>
+      <div className="actions mcp-config-actions">
+        <button
+          className="primary"
+          disabled={blocked}
+          onClick={() => copy(json, "Configuration")}
+        >
+          <Copy size={16} /> Copy configuration
+        </button>
+        <button disabled={blocked} onClick={download}>
+          <Download size={16} /> Download JSON
+        </button>
+      </div>
+      <details className="mcp-config-preview">
+        <summary>View {chosen.name} configuration</summary>
+        <pre>{json}</pre>
+      </details>
+      <p className="helper">
+        Tokens are shown only after enabling or rotating this server. Rotation
+        revokes the previous token; update connected apps.
+      </p>
+      <div className="mcp-token-actions">
+        <div>
+          <strong>Server token</strong>
+          <span>
+            {token
+              ? "Visible until hidden or you leave this server"
+              : "Hidden · copied separately from configuration"}
+          </span>
+        </div>
+        <button disabled={blocked} onClick={() => accessToken(false)}>
+          <Copy size={15} /> Copy token
+        </button>
+        <button
+          disabled={blocked}
+          onClick={() => (token ? setToken("") : accessToken(true))}
+        >
+          {token ? <EyeOff size={15} /> : <Eye size={15} />}
+          {token ? "Hide token" : "Show token"}
+        </button>
+      </div>
+      {token && (
+        <label className="mcp-visible-token">
+          Access token
+          <input
+            autoComplete="off"
+            readOnly
+            value={token}
+            onFocus={(event) => event.target.select()}
+          />
+        </label>
+      )}
+      {manual && (
+        <div className="mcp-manual-copy">
+          <label>
+            {manual.label} · manual copy
+            <textarea
+              aria-label={`${manual.label} · manual copy`}
+              readOnly
+              autoFocus
+              value={manual.value}
+              onFocus={(event) => event.target.select()}
+              rows={manual.secret ? 2 : 8}
+              spellCheck={false}
+            />
+          </label>
+          <button onClick={() => setManual(null)}>
+            {manual.secret ? "Hide token" : "Close manual copy"}
+          </button>
+        </div>
+      )}
+      {notice && (
+        <p className="mcp-copy-notice" role="status">
+          {notice}
+        </p>
+      )}
+      {error && (
+        <p className="notice" role="alert">
+          {error}
+        </p>
+      )}
+      <p className="helper">
+        Downloaded configurations use token placeholders. Rotating the server
+        token means updating it in your editor.
+      </p>
+      {client === "vscode" && (
+        <details className="mcp-remote-help">
+          <summary>Using Remote-SSH or Agent Host?</summary>
+          <p>
+            Open the remote project first, then use its{" "}
+            <code>.vscode/mcp.json</code> or{" "}
+            <code>MCP: Open Remote User Configuration</code>. The endpoint must
+            be reachable from that environment.
+          </p>
+          <p>
+            Agent Host does not forward servers with interactive token prompts.
+            Choose the environment-variable option above for those sessions.{" "}
+            <code>localhost</code> refers to the machine running the MCP client.
+          </p>
+        </details>
+      )}
+      <a
+        className="mcp-docs-link"
+        href={chosen.docs}
+        target="_blank"
+        rel="noreferrer"
+      >
+        {chosen.name} setup guide <ExternalLink size={14} />
+      </a>
+    </section>
+  );
+}
 
 const STARTERS = [
   {
@@ -81,35 +484,28 @@ function ServerCard({
 
 export default function MCPServers({
   project,
-  tools,
   api,
   onCreate,
   onAgent,
+  onCoding,
   initialServer,
 }) {
-  const [servers, setServers] = useState([]),
-    [mail, setMail] = useState(null);
+  const [servers, setServers] = useState([]);
+  const [issued, setIssued] = useState(null);
+  const selectionVersion = useRef(0);
   const [selected, setSelected] = useState(initialServer || null),
     [error, setError] = useState("");
   const [busy, setBusy] = useState(false),
-    [config, setConfig] = useState(null);
+    [configVersion, setConfigVersion] = useState(0);
   const base = `/projects/${project.id}/mcp-servers`;
   const load = async () => {
-    const [list, connection] = await Promise.all([
-      api(base),
-      api(`/projects/${project.id}/mcp`),
-    ]);
-    setServers(list);
-    setMail(connection);
+    setServers(await api(base));
   };
   useEffect(() => {
     let live = true;
-    Promise.all([api(base), api(`/projects/${project.id}/mcp`)])
-      .then(([list, connection]) => {
-        if (live) {
-          setServers(list);
-          setMail(connection);
-        }
+    api(base)
+      .then((list) => {
+        if (live) setServers(list);
       })
       .catch((e) => {
         if (live) setError(e.message);
@@ -132,19 +528,12 @@ export default function MCPServers({
   };
   const select = (id) => {
     setSelected(id);
-    setConfig(null);
+    selectionVersion.current++;
+    setIssued(null);
+    setConfigVersion((value) => value + 1);
     setError("");
   };
   const server = servers.find((s) => s.id === selected);
-  if (selected === "mail")
-    return (
-      <div className="mcp-connections">
-        <button className="mcp-back" onClick={() => select(null)}>
-          <ArrowLeft size={16} /> All MCP servers
-        </button>
-        <MailMCP project={project} tools={tools} api={api} />
-      </div>
-    );
   return (
     <section className="mcp-connections mcp-catalog">
       {selected && (
@@ -154,10 +543,10 @@ export default function MCPServers({
       )}
       <div className="section-heading">
         <div>
-          <span className="eyebrow">YOUR GPU. CONNECTED TO YOUR APPS.</span>
+          <span className="eyebrow">LOCAL TOOLS FOR YOUR APPS</span>
           <h1>{server ? server.definition.name : "MCP Servers"}</h1>
           <p className="lead">
-            Powered by local inference. Running on your machine.
+            Connect VS Code and other MCP apps to your project’s local tools.
           </p>
         </div>
         {!selected && (
@@ -175,7 +564,7 @@ export default function MCPServers({
         <>
           <div className="mcp-flow">
             <span>
-              <Plug size={23} /> Your connected app
+              <Plug size={23} /> Your editor or app
             </span>
             <ArrowRight size={18} />
             <span>
@@ -208,8 +597,13 @@ export default function MCPServers({
                   disabled={busy}
                   onClick={() =>
                     run(async () => {
-                      await api(`${base}/${server.id}`, { enabled: true });
-                      setConfig(null);
+                      const expected = selectionVersion.current;
+                      const value = await api(`${base}/${server.id}`, {
+                        enabled: true,
+                      });
+                      if (expected === selectionVersion.current)
+                        setIssued({ id: server.id, token: value.token });
+                      setConfigVersion((value) => value + 1);
                     })
                   }
                 >
@@ -221,7 +615,8 @@ export default function MCPServers({
                     onClick={() =>
                       run(async () => {
                         await api(`${base}/${server.id}`, { enabled: false });
-                        setConfig(null);
+                        setIssued(null);
+                        setConfigVersion((value) => value + 1);
                       })
                     }
                   >
@@ -246,51 +641,14 @@ export default function MCPServers({
                   Queue.
                 </p>
               )}
-              {server.enabled && (
-                <div className="mcp-client-config">
-                  <h3>Connect your app</h3>
-                  <label>
-                    MCP endpoint
-                    <input readOnly value={`${location.origin}/mcp/agents/`} />
-                  </label>
-                  <p className="helper">
-                    Each server has its own token and purpose. Servers share
-                    this HTTP endpoint and the local GPU queue. Your app needs
-                    MCP support or an add-on.
-                  </p>
-                  <div className="actions">
-                    <a
-                      className="button"
-                      href={`/api${base}/${server.id}/config`}
-                      download
-                    >
-                      <Download size={16} /> Download client configuration
-                    </a>
-                    <button
-                      disabled={busy}
-                      onClick={() =>
-                        run(async () =>
-                          setConfig(await api(`${base}/${server.id}/config`)),
-                        )
-                      }
-                    >
-                      Show configuration
-                    </button>
-                  </div>
-                  {config && (
-                    <>
-                      <p className="helper">
-                        Contains a private access token. Rotating it requires
-                        updating your client configuration.
-                      </p>
-                      <pre>{JSON.stringify(config, null, 2)}</pre>
-                      <button onClick={() => setConfig(null)}>
-                        Hide token
-                      </button>
-                    </>
-                  )}
-                </div>
-              )}
+              <ClientConnection
+                key={`${server.id}:${configVersion}:${server.enabled}`}
+                server={server}
+                issuedToken={issued?.id === server.id ? issued.token : null}
+                api={api}
+                base={base}
+                disabled={busy}
+              />
             </article>
             <aside className="panel mcp-capabilities">
               <span className="eyebrow">BOUNDED LOCAL WORK</span>
@@ -317,21 +675,31 @@ export default function MCPServers({
                 Use a trusted LAN, or HTTPS for untrusted networks. A connected
                 app’s own AI services remain under that app’s control.
               </p>
+              {onCoding && (
+                <button className="mcp-coding-handoff" onClick={onCoding}>
+                  <Code2 size={17} /> Open coding workspace{" "}
+                  <ArrowRight size={16} />
+                </button>
+              )}
             </aside>
           </div>
         </>
       ) : (
         <>
           <div className="mcp-local-banner">
-            <Cpu size={24} />
+            <Code2 size={24} />
             <div>
-              <strong>Local intelligence, wherever you work.</strong>
+              <strong>Your project tools, inside VS Code.</strong>
               <p>
-                Connect an MCP-capable app to a purpose-built Paiton server.
-                Models load when needed and share Studio’s GPU queue.
+                Choose a server, enable access, then follow its editor setup.
+                Enabling a server does not connect your editor or load a model.
               </p>
             </div>
-            <span>Local inference</span>
+            {onCoding && (
+              <button onClick={onCoding}>
+                Coding workspace <ArrowRight size={16} />
+              </button>
+            )}
           </div>
           <div className="section-heading mcp-catalog-heading">
             <div>
@@ -341,22 +709,6 @@ export default function MCPServers({
             <small>Independent tokens · shared local compute</small>
           </div>
           <div className="mcp-server-grid">
-            <ServerCard
-              icon={Mail}
-              name="Mail MCP server"
-              description="Summarize email, draft replies and prepare SMTP messages for review in your existing mail app."
-              status={
-                mail === null
-                  ? "Checking…"
-                  : mail.enabled
-                    ? "Enabled"
-                    : "Available · disabled"
-              }
-              action="Configure Mail"
-              onClick={() => select("mail")}
-            >
-              <small>SMTP · local drafting · owner review</small>
-            </ServerCard>
             {servers.map((s) => (
               <ServerCard
                 key={s.id}
@@ -408,8 +760,7 @@ export default function MCPServers({
           </div>
           <p className="helper mcp-catalog-footnote">
             Studio performs inference locally. MCP connects your apps; it does
-            not make those apps local or private automatically. Mail keeps its
-            existing SMTP settings and approval requirements.
+            not make those apps local or private automatically.
           </p>
         </>
       )}

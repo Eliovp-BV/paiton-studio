@@ -6,7 +6,10 @@ public sources; its artifact image alone is not a working video runtime.
 """
 import json
 from pathlib import Path
-from .qwen_mxfp4 import IMAGE as MXFP4_IMAGE, DOWNLOAD_BYTES as MXFP4_BYTES, SOURCE_REVISION as MXFP4_SOURCE
+from .qwen_mxfp4 import (IMAGE as MXFP4_IMAGE, DOWNLOAD_BYTES as MXFP4_BYTES, SOURCE_REVISION as MXFP4_SOURCE,
+                        W3_DOWNLOAD_BYTES, OPTIONAL_COMPONENTS as QWEN_OPTIONAL, W3_NOTE)
+from .qwen_image21 import (IMAGE as IMAGE21_IMAGE, CHECKPOINT as IMAGE21_CHECKPOINT,
+                           UNCENSORED_CHECKPOINT as IMAGE21_UNCENSORED_CHECKPOINT, RUNTIME_IMAGES as IMAGE21_RUNTIMES)
 MINICPM_IMAGE=json.loads((Path(__file__).parent/'contracts/minicpm5-image.json').read_text())
 
 H3 = {'source_repository': 'Eliovp-BV/paiton-vllm-plugin',
@@ -120,14 +123,37 @@ CODER = {
 }
 
 PACKAGES = {
+    'qwen-image21': dict(id='qwen-image21', title='High-detail images', model='Qwen-Image-2.1 MXFP4 · Paiton',
+        source_url='https://huggingface.co/EliovpAI/Qwen_Image-2.1-MXFP4-Paiton-RDNA4',
+        license='Qwen model license; runtime and third-party notices apply',
+        license_url='https://huggingface.co/EliovpAI/Qwen_Image-2.1-MXFP4-Paiton-RDNA4/blob/'+IMAGE21_CHECKPOINT['revision']+'/LICENSE',
+        download_bytes=IMAGE21_CHECKPOINT['download_bytes'], required_disk_bytes=35_000_000_000,
+        runtime_disk_bytes=15_000_000_000, image=IMAGE21_IMAGE, image_key='qwen_image21_image', model_dir_key='qwen_image21_model_dir',
+        runtime_images=IMAGE21_RUNTIMES, can_install=True, installer='qwen-image21',
+        steps=['Download the reviewed image runtime', 'Download and verify the pinned checkpoint', 'Connect local image creation'],
+        message='Recommended: runtime 1.0.3 with exact quality and 2048 × 2048 images at 40 steps. Also supports transparent PNGs and editing one image into a 1024 × 1024 result. Uses the same 9.3 GB original checkpoint; existing weights can be reused. Choose installed versions in Runtime packages.'),
+    'qwen-image21-uncensored': dict(id='qwen-image21-uncensored', title='Uncensored images', model='Qwen-Image-2.1 Uncensored MXFP4 · Paiton',
+        source_url='https://huggingface.co/'+IMAGE21_UNCENSORED_CHECKPOINT['repository'],
+        license='Qwen model license; runtime and third-party notices apply',
+        license_url='https://huggingface.co/'+IMAGE21_UNCENSORED_CHECKPOINT['repository']+'/blob/'+IMAGE21_UNCENSORED_CHECKPOINT['revision']+'/LICENSE',
+        download_bytes=IMAGE21_UNCENSORED_CHECKPOINT['download_bytes'], required_disk_bytes=35_000_000_000,
+        runtime_disk_bytes=15_000_000_000, image=IMAGE21_IMAGE, image_key='qwen_image21_uncensored_image',
+        model_dir_key='qwen_image21_uncensored_model_dir', checkpoint_variant='uncensored', requires_explicit_selection=True,
+        runtime_images=[IMAGE21_RUNTIMES[0]], can_install=True, installer='qwen-image21',
+        steps=['Reuse or download the shared 1.0.3 runtime', 'Download and verify the separate pinned checkpoint', 'Connect the optional image model'],
+        message='Optional abenzerps fine-tune, converted to MXFP4 by Paiton. Shares runtime 1.0.3 with the original model and uses exact quality, with a separate 9.3 GB checkpoint. Supports creation, transparent PNGs and 1024 × 1024 editing. MI355 conversion checks passed; Radeon AI PRO R9700 testing is pending. Select this model explicitly to use it.'),
     'qwen38-mxfp4': dict(id='qwen38-mxfp4', title='Recommended writing, websites & chat', model='Qwen3.8 27B MXFP4 + DFlash2 · Paiton',
-        source_url='https://github.com/Eliovp-BV/paiton-vllm-plugin/tree/' + MXFP4_SOURCE + '/models/Qwen3.8-MXFP4-DFlash2',
+        source_url='https://github.com/users/Eliovp/packages/container/package/paiton-vllm-plugin', source_label='Runtime package',
         license='Component-specific runtime, target and draft model terms; see package notices',
         license_url='https://github.com/Eliovp-BV/paiton-vllm-plugin/blob/' + MXFP4_SOURCE + '/models/Qwen3.8-MXFP4-DFlash2/THIRD_PARTY_NOTICES.md',
-        download_bytes=MXFP4_BYTES, required_disk_bytes=60_000_000_000,
+        download_bytes=MXFP4_BYTES, required_disk_bytes=60_000_000_000, runtime_disk_bytes=45_000_000_000,
         image=MXFP4_IMAGE, image_key='qwen38_mxfp4_image', can_install=True, installer='qwen38-mxfp4',
-        steps=['Prepare the pinned local runtime', 'Download and verify the target model', 'Download and verify the DFlash2 draft', 'Connect both local checkpoints'],
-        message='Recommended for writing, websites and chat. About 21.9 GB of target and draft weights plus runtime layers. Downloads resume after interruption; generation stays local.'),
+        optional_components=[dict(id='w3a4', label='Faster 3-bit weights', download_bytes=W3_DOWNLOAD_BYTES,
+            required_disk_bytes=12_000_000_000, runtime_disk_bytes=0, license=QWEN_OPTIONAL['w3a4']['license'],
+            license_url=QWEN_OPTIONAL['w3a4']['license_url'], revision=QWEN_OPTIONAL['w3a4']['revision'],
+            quality_note=W3_NOTE)],
+        steps=['Prepare the pinned local runtime', 'Verify the target model', 'Verify the DFlash2 draft', 'Connect both conversation modes'],
+        message='Recommended for writing, websites and chat. About 25.6 GB of base weights; allow 60 GB in Studio storage and 45 GB in Docker storage for setup. Optional Faster 3-bit weights add 9.55 GB. Both context modes share these files. Existing verified weights are reused and downloads resume after interruption.'),
     'minicpm5-2b': dict(id='minicpm5-2b', title='Small local chat & code', model='MiniCPM5-2B W4A16 · Paiton',
         source_url='https://huggingface.co/openbmb/MiniCPM5-2B-GPTQ/tree/6c1ee6fa521aa53f47cfb32696e6d8ef5b0db805',
         license='Apache-2.0 model and plugin; runtime notices apply',

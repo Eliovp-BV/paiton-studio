@@ -119,7 +119,8 @@ def _prepare_flux(manager, job, source, destination):
         manager.update(job, 'preparing', 'Preparing the image model locally. The GPU is reserved for this step.')
         command = ['docker', 'create', '--pull=never', '--name', name,
                    '--label', SETUP_OWNER_LABEL+'='+owner, '--label', SETUP_LABEL+'='+job_id,
-                   '--network', 'none', '--log-driver', 'none', '--init',
+                   '--network', 'none', '--cap-drop', 'ALL', '--security-opt', 'no-new-privileges',
+                   '--log-driver', 'none', '--init',
                    '--device', '/dev/kfd', '--device', '/dev/dri',
                    '--group-add', str(os.stat('/dev/kfd').st_gid), '--shm-size', '2g',
                    '--user', f'{os.getuid()}:{os.getgid()}',
@@ -206,7 +207,8 @@ def _install_h3(manager, job):
     try:
         result = manager.run(['docker', 'run', '--rm', '--pull=never', '--name', name,
                               '--label', SETUP_OWNER_LABEL+'='+owner, '--label', SETUP_LABEL+'='+str(job['id']),
-                              '--network', 'none', '--read-only', '--entrypoint', 'python3', image, '-c', script], job, timeout=60)
+                              '--network', 'none', '--read-only', '--cap-drop', 'ALL', '--security-opt', 'no-new-privileges',
+                              '--entrypoint', 'python3', image, '-c', script], job, timeout=60)
         if result.returncode:
             raise RuntimeError('The installed video package does not expose the verified image input. Studio will not substitute text-to-video.')
     finally:

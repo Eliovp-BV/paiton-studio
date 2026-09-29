@@ -85,6 +85,10 @@ class SetupManager:
                     created REAL NOT NULL, updated REAL NOT NULL);
                 CREATE INDEX IF NOT EXISTS setup_jobs_order ON setup_jobs(state,created);
             ''')
+            if 'component' not in {row['name'] for row in db.execute('PRAGMA table_info(setup_jobs)')}:
+                db.execute('ALTER TABLE setup_jobs ADD COLUMN component TEXT')
+        from .runtime_packages import RuntimePackages
+        self.runtime_packages = RuntimePackages(self)
 
     def _catalog(self):
         from .setup_catalog import PACKAGES as catalog
@@ -173,7 +177,11 @@ class SetupManager:
             return False, 'This model does not yet have a supported Studio integration.'
         try:
             selected = package['profiles'][0]
-            self.runtime.preflight({'profile': profile(selected['id'], selected['task'])})
+            request = {'profile': profile(selected['id'], selected['task'])}
+            if identity == 'qwen38-mxfp4':
+                self.runtime.preflight(request, verify_content=False)
+                return True, 'Installed locally. File hashes are checked before loading.'
+            self.runtime.preflight(request)
             return True, 'Installed locally. The model loads when you create something.'
         except (RuntimeFailure, OSError, ValueError, KeyError) as error:
             return False, str(error) if isinstance(error, RuntimeFailure) else 'The required local model files are missing or incomplete.'
@@ -192,10 +200,10 @@ class SetupManager:
             for identity, source in self._catalog().items():
                 ready, message = readiness[identity]
                 eligibility = hardware_compatibility(identity, system.get('gpu', {}))
-                active = next((j for j in jobs if j['package'] == identity and j['state'] not in TERMINAL), None)
-                last = next((j for j in jobs if j['package'] == identity), None)
+                active = next((j for j in jobs if j['package'] == identity and not j.get('component') and j['state'] not in TERMINAL), None)
+                last = next((j for j in jobs if j['package'] == identity and not j.get('component')), None)
                 installer = source.get('installer', 'manual')
-                supported_install = installer in ('qwen38-mxfp4', 'qwen38', 'flux', 'h3', 'qwen-coder','gptoss','wan','fastwan','minicpm5-2b') and source.get('can_install', False)
+                supported_install = installer in ('qwen-image21', 'qwen38-mxfp4', 'qwen38', 'flux', 'h3', 'qwen-coder','gptoss','wan','fastwan','minicpm5-2b') and source.get('can_install', False)
                 blocked = self._install_block(source, system)
                 state = 'ready' if ready else 'setup_required'
                 if not ready and not supported_install:
@@ -224,27 +232,85 @@ class SetupManager:
                     item.setdefault('state', 'completed' if ready else 'pending')
                     steps.append(item)
                 tools.append({**source, 'state': state, 'message': message, 'download_note': source.get('download_note', source.get('message')), 'steps': steps,
+                              'optional_components': self._components(identity, source, system, jobs),
                               'compatibility': eligibility,
                               'files_ready': ready, 'generation_ready': ready and system['ready'] and eligibility['compatible'],
                               'can_install': bool(not blocked and supported_install and not ready and not active),
+                              'can_verify': bool(identity == 'qwen38-mxfp4' and ready and supported_install
+                                                 and not blocked and not active),
                               'job': last})
             return {'system': dict(system), 'tools': tools, 'jobs': jobs}
 
-    def install(self, package):
+    def _component_spec(self, package, component):
+        source = self._catalog().get(package)
+        if not source or package != 'qwen38-mxfp4' or component != 'w3a4':
+            raise ValueError('Choose a supported optional model component.')
+        selected = next((item for item in source.get('optional_components', []) if item['id'] == component), None)
+        if selected is None:
+            raise ValueError('Choose a supported optional model component.')
+        return {**source, **selected}
+
+    def _components(self, package, source, system, jobs):
+        if package != 'qwen38-mxfp4':
+            return []
+        from .qwen_mxfp4 import IMAGE, optional_status, preflight
+        state = optional_status(self.runtime)
+        spec = self._component_spec(package, 'w3a4')
+        active = next((job for job in jobs if job['package'] == package and job.get('component') == 'w3a4'
+                       and job['state'] not in TERMINAL), None)
+        last = next((job for job in jobs if job['package'] == package and job.get('component') == 'w3a4'), None)
+        blocked = self._install_block(spec, system)
+        # Both context modes share the current target and draft. Older pinned
+        # requests retain their own checkpoints without blocking fresh setup.
+        base_ready = False
+        if not blocked:
+            try:
+                inspected = self.runtime.command(['image', 'inspect', IMAGE])
+                if inspected.returncode:
+                    raise ValueError()
+                preflight(self.runtime, IMAGE, inspected.stdout, verify_content=False)
+                base_ready = True
+            except (RuntimeFailure, OSError, ValueError, KeyError):
+                pass
+        message = (blocked[1] if blocked else 'Finish the Qwen3.8 base package setup first.' if not base_ready
+                   else 'Installed and verified.' if state['verified'] else 'Download or verify the optional Faster 3-bit weights.')
+        return [{**state, 'can_install': bool(base_ready and not blocked and not active and not state['verified']),
+                 'can_toggle': state['verified'], 'job': last,
+                 'state': 'installing' if active else state['state'], 'message': active['message'] if active else message}]
+
+    def install(self, package, component=None):
         with self.lock:
             if package not in self._catalog():
                 raise ValueError('Choose a supported local model package.')
-            active = next((j for j in self.jobs() if j['package'] == package and j['state'] not in TERMINAL), None)
+            if component is not None:
+                self._component_spec(package, component)
+            active = next((j for j in self.jobs() if j['package'] == package and j.get('component') == component
+                           and j['state'] not in TERMINAL), None)
             if active:
                 return active
             info = next(item for item in self.snapshot(force=True)['tools'] if item['id'] == package)
-            if not info['can_install']:
+            if component is not None:
+                info = next(item for item in info['optional_components'] if item['id'] == component)
+            if not (info['can_install'] or info.get('can_verify')):
                 raise ValueError(info['message'])
             identity, now = uid(), time.time()
+            message = ('Verification requested. Waiting for other package setup to finish.' if info.get('can_verify')
+                       else 'Download requested. Waiting for other package setup to finish.')
             with self.store.connect() as db:
-                db.execute('INSERT INTO setup_jobs(id,package,state,message,created,updated) VALUES(?,?,?,?,?,?)',
-                           (identity, package, 'queued', 'Download requested. Waiting for other package setup to finish.', now, now))
+                db.execute('INSERT INTO setup_jobs(id,package,state,message,created,updated,component) VALUES(?,?,?,?,?,?,?)',
+                           (identity, package, 'queued', message, now, now, component))
             return self.job(identity)
+
+    def set_component_enabled(self, package, component, enabled):
+        self._component_spec(package, component)
+        if type(enabled) is not bool:
+            raise ValueError('Choose whether Faster 3-bit weights should be enabled.')
+        with self.lock:
+            from .qwen_mxfp4 import W3_DEFAULT_KEY, optional_status
+            if enabled and not optional_status(self.runtime)['verified']:
+                raise ValueError('Download and verify Faster 3-bit weights before enabling them.')
+            self.configure({W3_DEFAULT_KEY: enabled}, None)
+            return optional_status(self.runtime)
 
     def cancel(self, identity):
         with self.lock:
@@ -304,8 +370,11 @@ class SetupManager:
                 try:
                     self.check_cancel(job)
                     spec = self._catalog()[job['package']]
+                    if job.get('component'):
+                        spec = self._component_spec(job['package'], job['component'])
                     system = self._system()
-                    blocked = self._install_block(spec, system)
+                    runtime_download = self.runtime_packages.handles(job)
+                    blocked = self.runtime_packages.install_block(spec, system) if runtime_download else self._install_block(spec, system)
                     if blocked:
                         raise SetupFailure(blocked[1])
                     if self._needs_recovery:
@@ -313,11 +382,16 @@ class SetupManager:
                         if recover_setup(self) is not True:
                             raise SetupFailure('Previous package preparation could not be checked. Restore Docker access, then retry setup.')
                         self._needs_recovery = False
-                    if spec['installer'] in ('gptoss','wan','fastwan','minicpm5-2b'):
+                    if runtime_download:
+                        self.runtime_packages.run(job)
+                    elif spec['installer'] in ('gptoss','wan','fastwan','minicpm5-2b'):
                         from .setup_alternatives import gptoss,wan,minicpm5
                         {'gptoss':gptoss,'wan':wan,'fastwan':wan,'minicpm5-2b':minicpm5}[spec['installer']](self,job)
                     elif spec['installer'] == 'qwen38-mxfp4':
                         from .qwen_mxfp4 import install
+                        install(self, job, component=job.get('component'))
+                    elif spec['installer'] == 'qwen-image21':
+                        from .qwen_image21 import install
                         install(self, job)
                     elif spec['installer'] == 'qwen38':
                         self._qwen38(job)
@@ -333,11 +407,23 @@ class SetupManager:
                 except SetupInterrupted as error:
                     self.update(job, 'interrupted', str(error))
                 except Exception as error:
-                    message = str(error) if isinstance(error, (RuntimeError, ValueError)) else 'Setup could not finish. Check the host network and free space, then choose Download again to retry.'
+                    from .diagnostics import classify_failure, redact
+                    self.save_log(job, str(error))
+                    failure = classify_failure(str(error))
+                    message = failure['message'] if failure['code'] != 'unknown' else redact(str(error))[:1500] if isinstance(error, (RuntimeError, ValueError)) else 'Setup could not finish. Open Show details, then choose Download again to retry.'
                     self.update(job, 'failed', message)
         finally:
             if self.lease:
                 self.lease.close()
+
+    def save_log(self, job, text):
+        if job is None:
+            return
+        from .diagnostics import write_setup_log
+        try:
+            write_setup_log(self, self._identity(job), text, append=True)
+        except (OSError, ValueError):
+            pass  # Logging must never replace the original setup error.
 
     def run(self, command, job, timeout=3600):
         """Run only reviewed adapter argv; stop the exact child process on cancel."""
@@ -377,8 +463,8 @@ class SetupManager:
             reader.join(timeout=3)
             result = subprocess.CompletedProcess(command, process.returncode, output.decode(errors='replace'), '')
             if result.returncode and job is not None:
-                # Raw tool output can contain local paths and remote response details.
-                raise SetupFailure('The package command failed. Check Docker, network access and free space, then retry setup.')
+                from .diagnostics import classify_failure
+                raise SetupFailure(classify_failure(result.stdout)['message'])
             return result
         finally:
             if process.poll() is None:
@@ -389,6 +475,8 @@ class SetupManager:
                     process.kill()
                     process.wait(timeout=3)
             reader.join(timeout=3)
+            if output:
+                self.save_log(job, output.decode(errors='replace'))
             self.process = None
 
     def _open(self, url, headers=None):
@@ -507,7 +595,8 @@ class SetupManager:
                 if not isinstance(disk_config, dict):
                     raise SetupFailure('Studio configuration must contain an object.')
                 current.update(disk_config)
-            self.update(job, 'configuring', 'Registering the verified local package.')
+            if job is not None:
+                self.update(job, 'configuring', 'Registering the verified local package.')
             atomic(self.config_path, (json.dumps({**current, **updates}, indent=2) + '\n').encode())
             self.config.update(updates)
             self._snapshot_at = 0

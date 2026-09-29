@@ -13,6 +13,12 @@
 .model-memory-settings .memory-ready p {
   margin: 5px 0 0;
 }
+.model-memory-settings .memory-release {
+  margin-bottom: 20px;
+}
+.model-memory-settings .memory-release .helper {
+  margin-top: 8px;
+}
 .model-memory-settings .memory-switch-note {
   display: flex;
   gap: 12px;
@@ -29,7 +35,4 @@
 }
 .model-memory-settings select {
   max-width: 100%;
-}
-.model-memory-settings details p {
-  line-height: 1.6;
 }

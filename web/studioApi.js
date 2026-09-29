@@ -5,8 +5,10 @@ import { syncServerClock } from "./creationFeedback.js";
 export function createStudioApi(fetcher = (...args) => fetch(...args)) {
   let token = "",
     sessionRequest = null;
+  let sessionEpoch = 0;
   async function raw(path, body, method) {
     const verb = method || (body === undefined ? "GET" : "POST");
+    const startedToken = token;
     const controller = new AbortController();
     const timeout = ["GET", "HEAD"].includes(verb)
       ? setTimeout(() => controller.abort(), 20000)
@@ -30,10 +32,15 @@ export function createStudioApi(fetcher = (...args) => fetch(...args)) {
       });
       syncServerClock(response.headers.get("date"));
       if (!response.ok) {
-        let detail, middlewareError;
+        let detail,
+          middlewareError,
+          pairingRequired = false,
+          networkEnabled = false;
         try {
           const data = await response.json();
           middlewareError = data.error;
+          pairingRequired = data.pairing_required === true;
+          networkEnabled = data.network_enabled === true;
           detail = data.error || data.detail?.[0]?.msg || data.detail;
         } catch (error) {
           if (controller.signal.aborted) throw error;
@@ -44,6 +51,10 @@ export function createStudioApi(fetcher = (...args) => fetch(...args)) {
             : "The request could not finish. Please try again.",
         );
         error.status = response.status;
+        error.pairingRequired = pairingRequired;
+        error.networkEnabled = networkEnabled;
+        if (pairingRequired && token === startedToken)
+          api.onPairingRequired?.(error);
         // Only these exact security-middleware failures establish that the
         // endpoint did not execute. Other authorization failures stay intact.
         error.sessionRejected =
@@ -73,8 +84,10 @@ export function createStudioApi(fetcher = (...args) => fetch(...args)) {
   }
   async function connect() {
     if (!sessionRequest) {
+      const epoch = sessionEpoch;
       sessionRequest = raw("/session")
         .then((session) => {
+          if (epoch !== sessionEpoch) return { token };
           token = session.token;
           return session;
         })
@@ -96,6 +109,12 @@ export function createStudioApi(fetcher = (...args) => fetch(...args)) {
       return raw(path, body, method);
     }
   }
+  api.pair = async (code, name) => {
+    const session = await raw("/session/pair", { code, name }, "POST");
+    sessionEpoch++;
+    token = session.token;
+    return session;
+  };
   api.connect = connect;
   return api;
 }

@@ -1,0 +1,89 @@
+.context-inspector {
+  min-width: 0;
+  border-top: 1px solid var(--studio-border, #44473d);
+  margin-top: 9px;
+  padding-top: 7px;
+  font-size: 12px;
+}
+.context-inspector > summary {
+  display: flex;
+  gap: 7px;
+  align-items: center;
+  cursor: pointer;
+  padding: 5px 0;
+}
+.context-inspector-body {
+  display: grid;
+  gap: 9px;
+  padding: 8px 0;
+  min-width: 0;
+}
+.context-inspector-body > p {
+  margin: 0;
+  font-size: 11px;
+  line-height: 1.6;
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+.context-inspector-body > button {
+  justify-self: start;
+  padding: 7px 10px;
+  font-size: 11px;
+}
+.context-inspector-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 15px;
+  font-size: 11px;
+}
+.context-inspector-summary span {
+  color: var(--muted);
+}
+.context-inspector-sources {
+  padding-left: 19px;
+  margin: 0;
+  font-size: 11px;
+  line-height: 1.7;
+  overflow-wrap: anywhere;
+}
+.context-inspector-messages {
+  display: grid;
+  gap: 7px;
+  max-height: 360px;
+  overflow: auto;
+  min-width: 0;
+}
+.context-inspector-messages details {
+  border: 1px solid var(--studio-border, #44473d);
+  border-radius: 7px;
+  padding: 8px;
+  min-width: 0;
+}
+.context-inspector-messages summary {
+  cursor: pointer;
+  font-size: 11px;
+}
+.context-inspector-messages pre {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-family: ui-monospace, monospace;
+  font-size: 11px;
+  line-height: 1.65;
+  padding: 10px 0 0;
+  margin: 0;
+  color: var(--text, #e7e7e2);
+}
+.context-inspector-body > .context-inspector-error {
+  color: #f2b5a7;
+}
+.context-inspector-body > .context-inspector-note {
+  font-size: 10px;
+}
+@media (max-width: 600px) {
+  .context-inspector-messages {
+    max-height: 300px;
+  }
+  .context-inspector-summary {
+    gap: 7px;
+  }
+}

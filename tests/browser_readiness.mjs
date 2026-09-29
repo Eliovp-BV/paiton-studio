@@ -1,5 +1,5 @@
 // Real read-only API on an isolated Studio; no downloads of models or inference.
-import { chromium } from "playwright";
+import { chromium } from "./browser_support.mjs";
 import assert from "node:assert/strict";
 import fs from "node:fs/promises";
 const base = process.env.STUDIO_TEST_URL || "http://127.0.0.1:8897";
@@ -17,8 +17,10 @@ page.on("request", (r) => {
 });
 try {
   await page.goto(base + "/#home");
+  await page.getByRole("button", { name: "Settings", exact: true }).click();
   await page
-    .getByRole("button", { name: "System details", exact: true })
+    .locator("main .settings-tabs")
+    .getByRole("button", { name: "System & drivers", exact: true })
     .click();
   await page
     .getByRole("heading", { name: "What can you create here?" })

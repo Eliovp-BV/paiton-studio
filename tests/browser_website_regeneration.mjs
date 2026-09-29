@@ -1,12 +1,12 @@
 // Real worker-disabled Studio APIs with explicitly authored completion fixtures.
 // No runtime is started: fixture copy/images are never claimed as inference.
-import { chromium } from "playwright";
+import { chromium } from "./browser_support.mjs";
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 
-const base = process.env.STUDIO_URL || "http://127.0.0.1:8897";
+const base = process.env.STUDIO_URL;
 const data = path.resolve(process.env.STUDIO_TEST_DATA || "");
 assert.ok(
   data.startsWith(path.resolve(".local") + path.sep),
@@ -82,6 +82,12 @@ async function clearNotice() {
   if (await dismiss.isVisible()) await dismiss.click();
 }
 async function review() {
+  // Inline review remains available after closing the shared Activity panel.
+  const activity = page.getByRole("button", {
+    name: "Close activity",
+    exact: true,
+  });
+  if (await activity.isVisible()) await activity.click();
   await page
     .locator(".site-review")
     .getByRole("button", { name: "Review update", exact: true })
@@ -159,7 +165,7 @@ try {
     }
     if (!image)
       throw Error(
-        "An existing real source image is required; no image is simulated.",
+        "An existing synthetic source image is required; use the harness image fixture.",
       );
     const project = await (
       await fetch("/api/projects", { method: "POST", headers, body: "{}" })
@@ -186,7 +192,8 @@ try {
         headers: { "X-Studio-Token": token },
         body,
       });
-      if (!response.ok) throw Error("Failed to import the real image fixture");
+      if (!response.ok)
+        throw Error("Failed to import the synthetic image fixture");
       images.push((await response.json()).id);
     }
     localStorage.setItem("studio-project", project.id);

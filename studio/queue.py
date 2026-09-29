@@ -148,10 +148,16 @@ class Worker:
             message = 'Request cancelled before starting.' if queued else 'Stopping the creation tool. Your saved work is safe.'
             now = time.time()
             if not job['cancel'] or job['state'] != state or job['message'] != message:
-                db.execute('UPDATE jobs SET cancel=1,state=?,message=?,progress=NULL,updated=? WHERE id=?', (state, message, now, identity))
-                db.execute('INSERT INTO job_events(job,state,message,progress,created) VALUES(?,?,?,?,?)', (identity, state, message, None, now))
+                db.execute('UPDATE jobs SET cancel=1,state=?,message=?,updated=? WHERE id=?', (state, message, now, identity))
+                db.execute('INSERT INTO job_events(job,state,message,progress,created) VALUES(?,?,?,?,?)', (identity, state, message, job.get('progress'), now))
         if not queued and job.get('container'):
-            self._request_stop(identity, job['container'])
+            managed=False
+            try:
+                managed=getattr(self.runtime,'cancel_text',lambda *args:False)(identity,job['container'])
+            except Exception:
+                # A failed cancellation signal must never leave inference active.
+                managed=False
+            if not managed:self._request_stop(identity, job['container'])
 
     def _request_stop(self, identity, container):
         with self._lifecycle_lock:
@@ -216,7 +222,14 @@ class Worker:
                 self._status(job['id'], 'queued', 'Another Studio request is using the GPU.')
                 self._next_admission = time.monotonic() + self.admission_retry_seconds
                 return
-            status = gpu_status()
+            try:
+                status = gpu_status()
+            except (OSError, ValueError):
+                status = {'retryable': True}
+            if status.get('retryable'):
+                self._status(job['id'], 'queued', 'GPU availability could not be checked. Studio will check again; your request is kept.')
+                self._next_admission = time.monotonic() + self.admission_retry_seconds
+                return
             if status.get('supported') is False:
                 raise RuntimeFailure(status['message'])
             if reusing and not self.runtime.warm_owns_gpu(status):
@@ -250,7 +263,8 @@ class Worker:
                 Meetings(self.store.root).complete(request['meeting_id'],path,metadata)
                 self._status(job['id'],'completed','Meeting transcript and notes saved locally.')
                 return
-            asset_name = 'MCP email assistance' if request.get('purpose') == 'mcp-assistance' else 'PaitonMail reply' if request.get('purpose') == 'mail-reply' else 'Agent result' if request.get('purpose') == 'agent-review' else 'Agent draft' if request.get('purpose') == 'agent-draft' else 'Website plan' if request.get('purpose') == 'website-plan' else 'Website page copy' if request.get('purpose') == 'website-page-copy' else 'Website artwork' if request.get('purpose') in ('website-artwork','website-section-artwork') else {'image': 'New image', 'video': 'Animated scene', 'text': 'Writing draft'}[kind]
+            asset_name = 'Agent result' if request.get('purpose') == 'agent-review' else 'Agent draft' if request.get('purpose') == 'agent-draft' else 'Website plan' if request.get('purpose') == 'website-plan' else 'Website page copy' if request.get('purpose') == 'website-page-copy' else 'Website artwork' if request.get('purpose') in ('website-artwork','website-section-artwork') else {'image': 'New image', 'video': 'Animated scene', 'text': 'Writing draft'}[kind]
+            if kind=='image' and request['profile'].get('mode')=='edit': asset_name='Edited image'
             asset = self.store.add_asset(job['project'], kind, asset_name, path.read_bytes(), path.suffix,
                                          {**metadata, 'origin': 'generated', 'job': job['id'], 'request': request,
                                           'source_ids': [request['source']['id']] if request.get('source') else request.get('context_ids', []),
@@ -261,11 +275,20 @@ class Worker:
         except Exception as error:
             cancelled = self.store.job(job['id'])['cancel']
             message = str(error) if isinstance(error, (RuntimeFailure, ValueError)) else 'The local tool could not finish. Check installed packages and available memory, then retry.'
+            if not cancelled:
+                from .diagnostics import classify_failure, read_job_log, write_job_log, redact
+                try:
+                    if not read_job_log(self.store,job['id'])['available']:
+                        write_job_log(self.store,job['id'],str(error),filename='runtime-error.log')
+                except (OSError,ValueError):pass
+                failure=classify_failure(str(error))
+                message=failure['message'] if failure['code']!='unknown' else redact(message)[:1500]
             self._status(job['id'], 'cancelled' if cancelled else 'failed', 'Request cancelled.' if cancelled else message)
             if (entered_runtime or switching_runtime) and not isinstance(error,InputRejected):
                 self._recovery_needed = True
                 self._next_recovery = 0
         finally:
+            getattr(self.runtime,'finish_job',lambda identity:None)(job['id'])
             if hasattr(self.runtime,'warm_live') and self.runtime.warm_live():
                 self._warm_lease=lease
             else:

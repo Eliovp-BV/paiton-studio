@@ -26,6 +26,11 @@ class AgentServers:
                 id TEXT PRIMARY KEY, project TEXT NOT NULL REFERENCES projects(id),
                 agent TEXT NOT NULL UNIQUE REFERENCES agents(id), enabled INTEGER NOT NULL,
                 token TEXT NOT NULL, generation TEXT NOT NULL, created REAL NOT NULL)''')
+            # Preserve existing clients while removing recoverable tokens.
+            for row in db.execute("SELECT id,token FROM mcp_agent_servers WHERE token<>''").fetchall():
+                if not row['token'].startswith('sha256:'):
+                    db.execute('UPDATE mcp_agent_servers SET token=? WHERE id=? AND token=?',
+                               ('sha256:'+hashlib.sha256(row['token'].encode()).hexdigest(),row['id'],row['token']))
 
     def list(self, project):
         self.store.project(project)
@@ -53,22 +58,22 @@ class AgentServers:
                 selected=resolve_profile(self.store, self.agents.runtime, 'code' if definition['template']=='code' else 'chat', definition['profile_id'], options=definition.get('conversation'))
                 if definition.get('tools_enabled') and selected['package']!='qwen38-mxfp4':
                     raise ValueError('Project coding tools require Qwen3.8 MXFP4 + DFlash2.')
+            token = secrets.token_urlsafe(32) if enabled else ''
             with self.store.connect() as db:
                 db.execute('UPDATE mcp_agent_servers SET enabled=?,token=?,generation=? WHERE id=?',
-                           (int(enabled), secrets.token_urlsafe(32) if enabled else '', uid(), identity))
-        return next(s for s in self.list(project) if s['id'] == identity)
+                           (int(enabled), 'sha256:'+hashlib.sha256(token.encode()).hexdigest() if enabled else '', uid(), identity))
+        result=next(s for s in self.list(project) if s['id'] == identity)
+        return {**result,'token':token} if enabled else result
 
     def configuration(self, project, identity, base):
-        row = self.get(project, identity)
-        if not row['enabled']: raise ValueError('Enable this MCP server first.')
-        return {'mcpServers': {'paiton-'+identity: {'url': base.rstrip('/')+'/mcp/agents/',
-                'headers': {'Authorization': 'Bearer '+row['token']}}}}
+        self.get(project, identity)
+        raise ValueError('Tokens are shown once when enabled or rotated. Rotate the server token to connect a new app.')
 
     def authorize(self, authorization):
         token = authorization[7:] if authorization.startswith('Bearer ') else ''
         if 20 <= len(token) <= 128:
             for row in self.store.rows('SELECT * FROM mcp_agent_servers WHERE enabled=1'):
-                if secrets.compare_digest(row['token'], token): return row
+                if secrets.compare_digest(row['token'], 'sha256:'+hashlib.sha256(token.encode()).hexdigest()): return row
         raise ValueError('This MCP server is disabled or its token has expired.')
 
     @staticmethod

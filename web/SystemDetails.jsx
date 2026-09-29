@@ -84,6 +84,7 @@ export default function SystemDetails({ api }) {
   const host = snapshot?.platform || {};
   const driver = snapshot?.driver || {};
   const docker = snapshot?.docker || {};
+  const studio = snapshot?.studio || {};
   const memory = snapshot?.memory || {};
   const storage = snapshot?.storage || {};
   const sampled = snapshot?.sampled_at ? new Date(snapshot.sampled_at) : null;
@@ -129,6 +130,12 @@ export default function SystemDetails({ api }) {
           <Group title="Operating system & driver" icon={Monitor}>
             <Facts
               entries={[
+                [
+                  "Paiton Studio",
+                  studio.version
+                    ? `Studio ${studio.version} (${studio.git_sha})`
+                    : "Not reported",
+                ],
                 [
                   "Operating system",
                   reported(host.distribution || host.system),

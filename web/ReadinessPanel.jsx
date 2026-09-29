@@ -8,13 +8,7 @@ import {
   Info,
   RefreshCw,
 } from "lucide-react";
-const STATE = {
-  ready: "Ready to create",
-  setup_required: "Needs setup",
-  incompatible: "Not qualified here",
-  environment_required: "Host needs attention",
-  available: "Not integrated yet",
-};
+import { readinessLabel } from "./readinessLabels";
 export default function ReadinessPanel({ api, onSetup }) {
   const [report, setReport] = useState(null),
     [error, setError] = useState(""),
@@ -132,7 +126,7 @@ export default function ReadinessPanel({ api, onSetup }) {
                       </small>
                     </span>
                     <span className={"readiness-state " + m.state}>
-                      {STATE[m.state] || m.state}
+                      {readinessLabel(m)}
                       <ChevronRight size={14} />
                     </span>
                   </summary>

@@ -1,0 +1,330 @@
+{
+  "source_repository": "abenzerps/Qwen-Image-2.1-Uncensored-GGUF",
+  "source_revision": "40319fb15542f0ad22921e0124a191a8a935a60a",
+  "tensor_payload_bytes": 9313781512,
+  "files": [
+    {
+      "file": "processor/added_tokens.json",
+      "bytes": 707,
+      "sha256": "c0284b582e14987fbd3d5a2cb2bd139084371ed9acbae488829a1c900833c680"
+    },
+    {
+      "file": "processor/chat_template.jinja",
+      "bytes": 5292,
+      "sha256": "3636d0f0bd6bef02654cdffdc447b79cb2cef8ab02cc75267345946291a489e4"
+    },
+    {
+      "file": "processor/merges.txt",
+      "bytes": 1671853,
+      "sha256": "8831e4f1a044471340f7c0a83d7bd71306a5b867e95fd870f74d0c5308a904d5"
+    },
+    {
+      "file": "processor/preprocessor_config.json",
+      "bytes": 782,
+      "sha256": "93585062a80db5e8ca038efc7726a3e6411d9db948472d81d63c6303993be8c5"
+    },
+    {
+      "file": "processor/special_tokens_map.json",
+      "bytes": 613,
+      "sha256": "76862e765266b85aa9459767e33cbaf13970f327a0e88d1c65846c2ddd3a1ecd"
+    },
+    {
+      "file": "processor/tokenizer.json",
+      "bytes": 11422654,
+      "sha256": "aeb13307a71acd8fe81861d94ad54ab689df773318809eed3cbe794b4492dae4"
+    },
+    {
+      "file": "processor/tokenizer_config.json",
+      "bytes": 5445,
+      "sha256": "81ec7bb9530159b326c0bef1d0b6c33d392090524014ea3f0123a3c1eb9c2af5"
+    },
+    {
+      "file": "processor/video_preprocessor_config.json",
+      "bytes": 817,
+      "sha256": "59c5c9eb52182eb14c06ffb10ca9effd29adce5f238a95de23ca14a38dbd2cb1"
+    },
+    {
+      "file": "processor/vocab.json",
+      "bytes": 2776833,
+      "sha256": "ca10d7e9fb3ed18575dd1e277a2579c16d108e32f27439684afa0e10b1440910"
+    },
+    {
+      "file": "result.json",
+      "bytes": 250167,
+      "sha256": "7d0ccb072548700c0e8f8989eb1d9999a4995c0a71a7734de3be081abe3e4f89"
+    },
+    {
+      "file": "scheduler/scheduler_config.json",
+      "bytes": 485,
+      "sha256": "5895f3a167c14a967fe9ac70c64924ae5acc79799e0679fd12907e594a713cd1"
+    },
+    {
+      "file": "text_encoder/config.json",
+      "bytes": 1517,
+      "sha256": "6001331949f7f86ab6d791a80b12246d4f8da5159fa08c3e62368a39f36d63a9"
+    },
+    {
+      "file": "text_encoder/weights-00001.safetensors",
+      "bytes": 330613160,
+      "sha256": "f4da6dc292c0a961d74a02dd076d24aee3f38289c7f250c8727d298a86cf0d80"
+    },
+    {
+      "file": "text_encoder/weights-00002.safetensors",
+      "bytes": 202806640,
+      "sha256": "6683ed125cbeb40d6a00216f64e549d1ce36a766f972c57c8c5686550f26f7d3"
+    },
+    {
+      "file": "text_encoder/weights-00003.safetensors",
+      "bytes": 205035120,
+      "sha256": "2df7f765d32ef69481f97034f21d344ac9c251fc6a7dbcdcc016e2c4e6b0f5ac"
+    },
+    {
+      "file": "text_encoder/weights-00004.safetensors",
+      "bytes": 205035120,
+      "sha256": "bbe642ee7e8e3370f9a0445ba5207bfebee202ea25676e7232d1e44038de3c5c"
+    },
+    {
+      "file": "text_encoder/weights-00005.safetensors",
+      "bytes": 202756768,
+      "sha256": "c42fca1cc6c1a8ee0e92b0a840faf95e91f8d0852d79d2d81c29869f7cea3a7b"
+    },
+    {
+      "file": "text_encoder/weights-00006.safetensors",
+      "bytes": 182434800,
+      "sha256": "17df5a53455f78da82104741e906359a5b4eabf697fc4a9294b0891874e9c9c7"
+    },
+    {
+      "file": "text_encoder/weights-00007.safetensors",
+      "bytes": 202806672,
+      "sha256": "309c016ee140abadb50393412c2fd2c2c1d895edfa52ee15bffffbd92d5b5963"
+    },
+    {
+      "file": "text_encoder/weights-00008.safetensors",
+      "bytes": 205035152,
+      "sha256": "0463a92fa87a14f70b70019c544e92741e63061b4120a0bb219e5cf219d415c3"
+    },
+    {
+      "file": "text_encoder/weights-00009.safetensors",
+      "bytes": 205035152,
+      "sha256": "14d947a8fa186cae770ea124dffd752b6bfd3a36b3ebd87d904699832c258189"
+    },
+    {
+      "file": "text_encoder/weights-00010.safetensors",
+      "bytes": 205035152,
+      "sha256": "1b0fb642ff474d93d8fe0a4f0d99d577b4ac4311a4c84cde0a88b16c94b3379a"
+    },
+    {
+      "file": "text_encoder/weights-00011.safetensors",
+      "bytes": 207271944,
+      "sha256": "260fabe706ff30aacc9348299a6fceaee57af24cfc88ed40a8c412481b639a2b"
+    },
+    {
+      "file": "text_encoder/weights-00012.safetensors",
+      "bytes": 205035120,
+      "sha256": "b9ced7666665bedd825cef9d37608332dea80c5c89367b3d455c6ed84d3c1987"
+    },
+    {
+      "file": "text_encoder/weights-00013.safetensors",
+      "bytes": 75770384,
+      "sha256": "1186899042135f046857ee1c31bbefdc0fbaf8fe8a33d01581b49fc3a1800e35"
+    },
+    {
+      "file": "text_encoder/weights-00014.safetensors",
+      "bytes": 209498384,
+      "sha256": "ef889195f6e3ecd025b7055afdfc5673969ac2e22c159eff57384e8e86a2a5f0"
+    },
+    {
+      "file": "text_encoder/weights-00015.safetensors",
+      "bytes": 205035152,
+      "sha256": "152bfd694e16d215d314d86e61914905b3e4cf20ee896de94ea0b6fbaa44494f"
+    },
+    {
+      "file": "text_encoder/weights-00016.safetensors",
+      "bytes": 205035152,
+      "sha256": "469988778630cf75282d04d1654e724d1fe5dd4391382db52c494d9c4b35a29f"
+    },
+    {
+      "file": "text_encoder/weights-00017.safetensors",
+      "bytes": 205035152,
+      "sha256": "ae931d67cd4e4dcc8534170e49ae0312b9d00ba76f05ec82e26516b1cec4134f"
+    },
+    {
+      "file": "text_encoder/weights-00018.safetensors",
+      "bytes": 205035152,
+      "sha256": "c7b0cd6cb16d30b9f0a2282a2e165aa92d349abd1443413ba06098cdf7210971"
+    },
+    {
+      "file": "text_encoder/weights-00019.safetensors",
+      "bytes": 205035152,
+      "sha256": "c83194f470530b85aaba2b5ed0d4ad011f431390dad9fe707c6e2cb9675eee5d"
+    },
+    {
+      "file": "text_encoder/weights-00020.safetensors",
+      "bytes": 71315480,
+      "sha256": "4a5648e9be5ff84589f90c47cde78285afe64cf14d2da596f87d6558b34deef4"
+    },
+    {
+      "file": "text_encoder/weights-00021.safetensors",
+      "bytes": 330613104,
+      "sha256": "184e49178bc1843c01b51d758385b5b45d777c3d0e0545bb1bdf7fa9cef3f33d"
+    },
+    {
+      "file": "text_encoder/weights-00022.safetensors",
+      "bytes": 209498384,
+      "sha256": "d513a74d1e4f3fcf9b89a0cd943a9170dc92e85a0fe81241b3def694b4231e69"
+    },
+    {
+      "file": "text_encoder/weights-00023.safetensors",
+      "bytes": 178296192,
+      "sha256": "9e3cc9224d17de2ce559ecddd91b2121a1d3e5d371878e89b2df6e2f190906a2"
+    },
+    {
+      "file": "text_encoder/weights.index.json",
+      "bytes": 96578,
+      "sha256": "52e387de3cb161bb3c49bfa9adfafbecad4ed4b65332b67c517a99f9c80f8247"
+    },
+    {
+      "file": "transformer/config.json",
+      "bytes": 370,
+      "sha256": "56ae3281c4e6c2d1aa3658252d187488071815fd79bef15808bb0205fc1a2241"
+    },
+    {
+      "file": "transformer/weights-00001.safetensors",
+      "bytes": 204473176,
+      "sha256": "36ddaae0bed6537ec88e046c6e718307cc76538c70438c0e870078d6d75d0b31"
+    },
+    {
+      "file": "transformer/weights-00002.safetensors",
+      "bytes": 205001288,
+      "sha256": "e6022b43d61f90ddca5e2d2839cd295527c03d60a24f35fc47268f54acfd63ee"
+    },
+    {
+      "file": "transformer/weights-00003.safetensors",
+      "bytes": 205001320,
+      "sha256": "154146d6613ed7d4a1d4d71e745ccbd9a0ebbf41b2ccc5c18719c9548b865749"
+    },
+    {
+      "file": "transformer/weights-00004.safetensors",
+      "bytes": 205001312,
+      "sha256": "3c1705769154f6d17a102cb0a6247375084edb86be66342e983576a1bb6aa95c"
+    },
+    {
+      "file": "transformer/weights-00005.safetensors",
+      "bytes": 205000864,
+      "sha256": "f647ff6a19319084f412447eaa36629683a4a7a0559062d930a5411accc39a01"
+    },
+    {
+      "file": "transformer/weights-00006.safetensors",
+      "bytes": 222826408,
+      "sha256": "5f90211ff00349c1ba5174f7354d14ceaa730ff32e38cf3e8d66b549d6f7f515"
+    },
+    {
+      "file": "transformer/weights-00007.safetensors",
+      "bytes": 205001320,
+      "sha256": "0553e76631c4e011f0f2917fd9e78225ad8eaaf727e2ea8db741bc831eab2f8c"
+    },
+    {
+      "file": "transformer/weights-00008.safetensors",
+      "bytes": 205001312,
+      "sha256": "32a3febb9d4c2cc15352078bf3b912fc81549376cfc38b9c9bb4291a45afbbf5"
+    },
+    {
+      "file": "transformer/weights-00009.safetensors",
+      "bytes": 205001304,
+      "sha256": "8b8c326b4fdbbb12ac879cf0e7ccaf6063ea872b6ae70b180e10b5a9051867de"
+    },
+    {
+      "file": "transformer/weights-00010.safetensors",
+      "bytes": 205000864,
+      "sha256": "6464aaacd54beec15169aa4869e5c1f6b74589f6e402ebe28345ae3e9d49a90c"
+    },
+    {
+      "file": "transformer/weights-00011.safetensors",
+      "bytes": 222826408,
+      "sha256": "878829a50db13f7155178d55f7f0ac000e0e5be437c604c9a9b2476705a46e32"
+    },
+    {
+      "file": "transformer/weights-00012.safetensors",
+      "bytes": 205001320,
+      "sha256": "c5f8409cbc21760a02a2530fa5ef18781c6cf1382ed1da378b1ef0f19ff60abe"
+    },
+    {
+      "file": "transformer/weights-00013.safetensors",
+      "bytes": 205001328,
+      "sha256": "58f4c2e56367921cce13e9a0ba9e4d869601e79609eb37f764b3b5acd9496732"
+    },
+    {
+      "file": "transformer/weights-00014.safetensors",
+      "bytes": 205001296,
+      "sha256": "ff906d4aa0322b4b58a503f091fb97d6e5d4dc356b84b0497c0a49570f40d701"
+    },
+    {
+      "file": "transformer/weights-00015.safetensors",
+      "bytes": 205000856,
+      "sha256": "29cea08aa74c9b8ef2c274ca5c0980dc6fae58a2787122749763aa715fbfb326"
+    },
+    {
+      "file": "transformer/weights-00016.safetensors",
+      "bytes": 222826392,
+      "sha256": "5c0f611079cdd03233fe35cf6d709763df8944b24e48f6011ff43fee0b9b0918"
+    },
+    {
+      "file": "transformer/weights-00017.safetensors",
+      "bytes": 205001288,
+      "sha256": "44449b2e3fad2175d17a7165307a645d46af2f4096d48f517c10deb1585466de"
+    },
+    {
+      "file": "transformer/weights-00018.safetensors",
+      "bytes": 205001296,
+      "sha256": "a08d51a0f37a7c500474880a934d0f3d1bd764326b16a68db06839dbab045f9b"
+    },
+    {
+      "file": "transformer/weights-00019.safetensors",
+      "bytes": 202902600,
+      "sha256": "67ea9aef20743c34a4f86579b79967fdf453d37709b0ffb6d7981190437c0cdb"
+    },
+    {
+      "file": "transformer/weights-00020.safetensors",
+      "bytes": 33563056,
+      "sha256": "8c085dafd9ae1345fefe11996b88f029992e79f47fdc09ea8c0554a161f3fa9f"
+    },
+    {
+      "file": "transformer/weights.index.json",
+      "bytes": 41507,
+      "sha256": "146e1a34bb9b15a74ad72e43ba2550fe31787cce53467e0b023f036f0b8ccf1f"
+    },
+    {
+      "file": "vae/config.json",
+      "bytes": 2079,
+      "sha256": "9785d527b278cb8b210e9f48a8028d92a4190968ce7e24c8fc85d9d1b82f6ba2"
+    },
+    {
+      "file": "vae/weights-00001.safetensors",
+      "bytes": 203107424,
+      "sha256": "1043a8bb881d751f95b427f9048bb290d8a2e22f0f4f122a5c0b35d7e820d125"
+    },
+    {
+      "file": "vae/weights-00002.safetensors",
+      "bytes": 220346496,
+      "sha256": "b491b4a0b7322e1e0efa0b4ad6249858583096986dd5c72371584b8c9d925fff"
+    },
+    {
+      "file": "vae/weights-00003.safetensors",
+      "bytes": 204800464,
+      "sha256": "3e7be3114f62aa557260dc7ddf5825f9fb28c7d8b86b12b774599840da0cf32e"
+    },
+    {
+      "file": "vae/weights-00004.safetensors",
+      "bytes": 47254608,
+      "sha256": "3f3fc4a4ad9b176b1905cb9e3c4bd37ce98d177f1b8caa561d7a135a0130f690"
+    },
+    {
+      "file": "vae/weights.index.json",
+      "bytes": 18726,
+      "sha256": "b1153ff6959e47d36954b1af174bfce909401459cf51756d624b0bf53cad3726"
+    }
+  ],
+  "repository": "EliovpAI/Qwen_Image-2.1-Uncensored-MXFP4-Paiton",
+  "revision": "f5b159e19d8feba47ca37749066a67276504343f",
+  "download_bytes": 9330308913
+}

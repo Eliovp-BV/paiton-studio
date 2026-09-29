@@ -54,6 +54,15 @@ def system_ready():
                     name='AMD Radeon AI PRO R9700', architecture='gfx1201', total=32*1024**3))
 
 
+def test_readiness_uses_metadata_only_for_qwen_and_keeps_other_probes_unchanged(manager):
+    calls = []
+    manager.runtime.preflight = lambda request, **kwargs: calls.append((request, kwargs))
+    assert manager._readiness('qwen38-mxfp4') == (True, 'Installed locally. File hashes are checked before loading.')
+    assert calls[-1][1] == {'verify_content': False}
+    assert manager._readiness('qwen38')[0]
+    assert calls[-1][1] == {}
+
+
 def test_snapshot_is_offline_and_probe_results_are_cached(manager):
     calls = []
     manager._system = lambda: calls.append('system') or system_ready()
@@ -90,8 +99,29 @@ def test_install_requires_supported_available_package_and_is_idempotent(manager)
     assert len(manager.jobs()) == 1
 
 
+def test_verify_action_is_qwen_only_and_respects_active_jobs_and_storage_blocks(manager):
+    manager._system = system_ready
+    manager._readiness = lambda package: (True, 'Installed locally')
+    tools = {item['id']: item for item in manager.snapshot()['tools']}
+    assert tools['qwen38-mxfp4']['can_verify'] and not tools['qwen38-mxfp4']['can_install']
+    assert not any(item['can_verify'] for key, item in tools.items() if key != 'qwen38-mxfp4')
+    with pytest.raises(ValueError, match='Installed locally'):
+        manager.install('qwen38')
+    current = manager.install('qwen38-mxfp4')
+    assert current['message'].startswith('Verification requested.')
+    assert manager.install('qwen38-mxfp4')['id'] == current['id']
+    tool = next(item for item in manager.snapshot()['tools'] if item['id'] == 'qwen38-mxfp4')
+    assert tool['state'] == 'installing' and not tool['can_verify'] and not tool['can_install']
+    manager.cancel(current['id'])
+    manager._system = lambda: {**system_ready(), 'disk_free_bytes': 1}
+    tool = next(item for item in manager.snapshot(force=True)['tools'] if item['id'] == 'qwen38-mxfp4')
+    assert tool['files_ready'] and not tool['can_verify'] and not tool['can_install']
+    with pytest.raises(ValueError, match='Free more space'):
+        manager.install('qwen38-mxfp4')
+
+
 def test_consumer_setup_excludes_unreleased_candidates_but_keeps_supported_tools(manager):
-    public = {'minicpm5-2b', 'flux', 'h3', 'qwen-coder', 'qwen38', 'qwen38-mxfp4', 'gptoss', 'wan', 'fastwan'}
+    public = {'qwen-image21', 'qwen-image21-uncensored', 'minicpm5-2b', 'flux', 'h3', 'qwen-coder', 'qwen38', 'qwen38-mxfp4', 'gptoss', 'wan', 'fastwan'}
     manager._system = system_ready
     probes = []
     manager._readiness = lambda package: probes.append(package) or (False, 'Missing files')

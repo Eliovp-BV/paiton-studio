@@ -29,6 +29,8 @@ def page_html(title,text,assets,template='story',theme='light',order=None,base='
 
 
 def export_project(store,identity):
+    from .coding import CodingWorkspace
+    code_files=CodingWorkspace(store).export_entries(identity)
     project=store.project(identity);assets=store.assets(identity)
     with store.connect() as db: website_row=db.execute('SELECT document FROM websites WHERE project=?',(identity,)).fetchone()
     website=json.loads(website_row['document']) if website_row else None
@@ -42,12 +44,18 @@ def export_project(store,identity):
             extension=store.file(asset).suffix
             archive.write(store.file(asset),'assets/'+asset['id']+extension)
         manifest={'format':'paiton-studio-project','version':2,'website':website,'project':project,'assets':[{**a,'path':'assets/'+a['id']+store.file(a).suffix} for a in assets]}
+        from .project_context import ProjectContext
+        manifest['project_brief']=ProjectContext(store).get(identity)
+        archive.writestr('project-brief.md',manifest['project_brief']['content'])
+        manifest['coding']={'files':[{**{key:value for key,value in item.items() if key!='content'},'path':'code/'+item['path']} for item in code_files]}
+        for item in code_files:
+            archive.writestr('code/'+item['path'],item['content'])
         with store.connect() as db:
             has_chats=db.execute("SELECT 1 FROM sqlite_master WHERE name='chats'").fetchone()
         if has_chats:
             from .chat import Chats
             chats=Chats(store,None)
-            manifest['conversations']=[chats.get(c['id']) for c in chats.list(identity)]
+            manifest['conversations']=[chats.get(c['id']) for c in chats.list(identity, archived='all')]
             archive.writestr('conversations.json',json.dumps(manifest['conversations'],indent=2))
             from .conversation_memory import records
             archive.writestr('conversation-context.json',json.dumps({turn['job']['id']:records(store,turn['job']['id'])

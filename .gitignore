@@ -22,3 +22,7 @@ research/
 
 # Local development instructions; not part of the consumer source package.
 /AGENTS.md
+studio/build_info.json
+
+# Output of `make package`.
+/paiton-studio-source.zip

@@ -6,7 +6,9 @@
   "scripts": {
     "dev": "vite --host 127.0.0.1",
     "build": "vite build",
-    "test:ui": "node tests/browser.mjs"
+    "test": "npm run test:unit",
+    "test:unit": "node scripts/run-node-tests.mjs",
+    "test:ui": "node scripts/run-ui-tests.mjs"
   },
   "dependencies": {
     "lucide-react": "0.468.0",

@@ -12,6 +12,7 @@ from .conversation_options import ConversationOptions, apply_options
 class Defaults(BaseModel):
     model_config = ConfigDict(extra='forbid')
     image: str = 'auto'
+    image_edit: str = 'auto'
     video: str = 'auto'
     write: str = 'auto'
     website: str = 'auto'
@@ -33,7 +34,8 @@ class Generation(BaseModel):
 
 class Performance(BaseModel):
     model_config = ConfigDict(extra="forbid")
-    keep_ready_minutes: Literal[2, 5, 15] = 2
+    # -1 keeps a text model loaded until it is released or another tool needs the GPU.
+    keep_ready_minutes: Literal[15, 60, -1] = 15
 
 
 class SettingsInput(BaseModel):
@@ -48,7 +50,12 @@ class SettingsInput(BaseModel):
 def get_settings(store):
     with store.connect() as db:
         row = db.execute("SELECT value FROM preferences WHERE key='settings'").fetchone()
-    return SettingsInput.model_validate(json.loads(row['value']) if row else {}).model_dump()
+    stored = json.loads(row['value']) if row else {}
+    performance = stored.get('performance')
+    if isinstance(performance, dict) and performance.get('keep_ready_minutes') in (2, 5):
+        # The retired 2 and 5 minute choices read as the current default; the next save persists it.
+        performance['keep_ready_minutes'] = 15
+    return SettingsInput.model_validate(stored).model_dump()
 
 
 def candidates(role):
@@ -82,6 +89,8 @@ def resolve_profile(store, runtime, role, identity=None, options=None):
     packages = {p['id']: p for p in PACKAGES}
     eligible.sort(key=lambda p: role not in packages[p['package']].get('default_for', []))
     for selected in eligible:
+        if selected.get('requires_explicit_selection') or packages[selected['package']].get('requires_explicit_selection'):
+            continue
         if not compatibility(selected, hardware)['compatible']:
             continue
         try:

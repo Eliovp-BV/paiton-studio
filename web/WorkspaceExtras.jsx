@@ -1,4 +1,6 @@
-import React, { useId, useState } from "react";
+import { technicalModel } from "./modelSelection";
+import NetworkAccess from "./NetworkAccess";
+import React, { useEffect, useId, useState } from "react";
 import {
   Activity,
   ArrowRight,
@@ -14,53 +16,23 @@ import {
   Settings2,
 } from "lucide-react";
 import { WIKI } from "./wiki.js";
-import { EditorialHero, MachineStatus } from "./StudioIdentity";
+import { EditorialHero } from "./StudioIdentity";
 import SetupTools from "./SetupTools";
 import ConversationControls from "./ConversationControls";
+import RuntimePackages from "./RuntimePackages";
 import ModelMemorySettings from "./ModelMemorySettings";
 import SystemDetails from "./SystemDetails";
 import ReadinessPanel from "./ReadinessPanel";
 import "./model-quality-note.css";
 
-export function taskProfiles(tools, task) {
-  return tools.flatMap((tool) =>
-    (tool.profiles || [])
-      .filter(
-        (profile) =>
-          profile.task ===
-            (["website", "chat", "code"].includes(task)
-              ? "write"
-              : task === "video_text"
-                ? "video"
-                : task) &&
-          (!profile.roles || profile.roles.includes(task)),
-      )
-      .map((profile) => ({
-        ...profile,
-        package: tool,
-        state: profile.state ?? tool.state,
-        compatibility: profile.compatibility ?? tool.compatibility,
-      })),
-  );
-}
-export function selectedProfile(
-  tools,
-  task,
-  value = "auto",
-  defaultId = "auto",
-) {
-  const all = taskProfiles(tools, task);
-  const identity = !value || value === "auto" ? defaultId : value;
-  if (identity && identity !== "auto")
-    return all.find((item) => item.id === identity);
-  const ready = all.filter(
-    (item) =>
-      item.state === "ready" && item.compatibility?.compatible !== false,
-  );
-  return (
-    ready.find((item) => item.package.default_for?.includes(task)) || ready[0]
-  );
-}
+export { taskProfiles, selectedProfile } from "./modelSelection";
+import { taskProfiles, selectedProfile } from "./modelSelection";
+import { readinessLabel } from "./readinessLabels";
+
+// Outcome-first package name for creators; package.model carries the technical
+// string (quantisation, draft model, vendor) and stays one step away.
+const packageName = (pkg) => pkg?.name || pkg?.model || "Local model";
+
 export function ModelChoice({
   tools,
   task,
@@ -69,16 +41,18 @@ export function ModelChoice({
   label = "Creation tool",
   defaultId = "auto",
   details = false,
+  conversation,
   onSetup,
+  disabled = false,
 }) {
-  const all = taskProfiles(tools, task);
+  const all = taskProfiles(tools, task, conversation);
   const available = all.filter(
     (profile) =>
       profile.state === "ready" && profile.compatibility?.compatible !== false,
   );
   // Match the backend's deterministic recommendation without changing the
   // saved selection or substituting for an explicit unavailable choice.
-  const selected = selectedProfile(tools, task, value, defaultId);
+  const selected = selectedProfile(tools, task, value, defaultId, conversation);
   const noteId = useId();
   const preparationId = useId();
   const note = [selected?.quality_note, selected?.package.quality_note].find(
@@ -95,15 +69,21 @@ export function ModelChoice({
       <label>
         {label}
         <select
+          disabled={disabled}
           aria-label={label}
           aria-describedby={describedBy || undefined}
+          title={technicalModel(selected?.package, conversation) || undefined}
           value={value || "auto"}
           onChange={(event) => onChange(event.target.value)}
         >
           <option value="auto">Recommended automatically</option>
           {available.map((profile) => (
-            <option key={profile.id} value={profile.id}>
-              {profile.package.model || profile.package.name} · {profile.label}
+            <option
+              key={profile.id}
+              value={profile.id}
+              title={technicalModel(profile.package, conversation) || undefined}
+            >
+              {packageName(profile.package)} · {profile.label}
             </option>
           ))}
           {all.some(
@@ -115,11 +95,18 @@ export function ModelChoice({
                   (profile) => profile.compatibility?.compatible === false,
                 )
                 .map((profile) => (
-                  <option key={profile.id} value={profile.id} disabled>
-                    {profile.package.model} ·{" "}
+                  <option
+                    key={profile.id}
+                    value={profile.id}
+                    disabled
+                    title={
+                      technicalModel(profile.package, conversation) || undefined
+                    }
+                  >
+                    {packageName(profile.package)} ·{" "}
                     {profile.compatibility.required_vram_gib >
                     (profile.compatibility.detected_vram_gib || 0)
-                      ? `needs ${profile.compatibility.required_vram_gib} GB`
+                      ? `needs ${profile.compatibility.required_vram_gib} GiB`
                       : "unsupported GPU"}
                   </option>
                 ))}
@@ -141,8 +128,8 @@ export function ModelChoice({
       {details && (
         <p className="helper model-note">
           {selected
-            ? `${selected.package.name} · ${selected.label}`
-            : `Studio chooses an installed ${task === "write" || task === "website" ? "writing" : task} tool for this task.`}{" "}
+            ? `${value === "auto" ? `${packageName(selected.package)} · ${selected.label}. ` : ""}Runs ${technicalModel(selected.package, conversation) || packageName(selected.package)}.`
+            : `Studio chooses an installed ${task === "write" || task === "website" ? "writing" : task === "image_edit" ? "image editing" : task} tool for this task.`}{" "}
           {available.length
             ? "Only compatible, installed choices can be selected."
             : all.find((profile) => profile.compatibility?.compatible === false)
@@ -150,6 +137,32 @@ export function ModelChoice({
               "No compatible tool is ready. Open Settings → Tool setup to prepare one."}
         </p>
       )}
+      {selected &&
+        (selected.requires_explicit_selection ||
+          selected.package.requires_explicit_selection) && (
+          <p className="helper" role="note">
+            Uncensored checkpoint · selected explicitly. Automatic
+            recommendations never switch to an uncensored checkpoint.
+          </p>
+        )}
+      {selected?.package.qualified === false && (
+        <p className="helper" role="note">
+          {readinessLabel({ state: "ready", qualified: false })}. You can still
+          use it; results are unverified here.
+        </p>
+      )}
+      {!selected &&
+        available.length > 0 &&
+        available.every(
+          (profile) =>
+            profile.requires_explicit_selection ||
+            profile.package.requires_explicit_selection,
+        ) && (
+          <p className="helper" role="note">
+            Choose an installed profile explicitly. Uncensored checkpoints are
+            never selected automatically.
+          </p>
+        )}
       {!available.length && onSetup && (
         <button type="button" className="text-link" onClick={onSetup}>
           Prepare a local tool <ArrowRight size={14} />
@@ -247,7 +260,7 @@ export function GpuActivity({
             Memory{" "}
             <b>
               {gpu.total
-                ? `${(gpu.used / 1024 ** 3).toFixed(1)} / ${(gpu.total / 1024 ** 3).toFixed(0)} GB`
+                ? `${(gpu.used / 1024 ** 3).toFixed(1)} / ${(gpu.total / 1024 ** 3).toFixed(0)} GiB`
                 : "Unavailable"}
             </b>
           </span>
@@ -347,9 +360,18 @@ export function StudioSettings({
   report,
   onToolsRefresh,
   initialTab = "preferences",
+  scope = "workspace",
+  onTabChange,
+  onSetup,
 }) {
   const [draft, setDraft] = useState(settings);
-  const [tab, setTab] = useState(initialTab);
+  const [tab, updateTab] = useState(initialTab);
+  const models = scope === "models";
+  const setTab = (value) => {
+    updateTab(value);
+    onTabChange?.(value);
+  };
+  useEffect(() => updateTab(initialTab), [initialTab]);
   const [busy, setBusy] = useState(false);
   const [saved, setSaved] = useState(false);
   const update = (group, patch) => {
@@ -379,13 +401,14 @@ export function StudioSettings({
       "Give visual ideas a starting point.",
     ],
     ["video", Film, "Video creation", "Animate images and create clips."],
-    ["write", PenLine, "Writing", "Draft captions, stories and articles."],
     [
-      "chat",
-      PenLine,
-      "GPTPaiton",
-      "Local conversations and document questions.",
+      "image_edit",
+      ImageIcon,
+      "Image editing",
+      "Change an existing image while keeping the original.",
     ],
+    ["write", PenLine, "Writing", "Draft captions, stories and articles."],
+    ["chat", PenLine, "Chat", "Local conversations and document questions."],
     ["code", PenLine, "Coding replies", "Code drafts for you to review."],
     ["video_text", Film, "Video from text", "Includes text-only video models."],
     [
@@ -397,147 +420,188 @@ export function StudioSettings({
   ];
   return (
     <>
-      <EditorialHero
-        compact
-        label="SETTINGS"
-        title="Make Studio"
-        accent="yours."
+      <header className="create-heading">
+        <h1>{models ? "Models" : "Settings"}</h1>
+        <p>
+          {models
+            ? "Choose, install and keep your local models ready."
+            : "Your workspace and Studio host."}
+        </p>
+      </header>
+      <div
+        className="tabs settings-tabs"
+        aria-label={models ? "Models sections" : "Settings sections"}
       >
-        Fine-tune your tools. Make room for bigger ideas.
-      </EditorialHero>
-      <div className="tabs settings-tabs" aria-label="Settings sections">
+        {models && <button onClick={onTools}>Installed models</button>}
         <button
           className={tab === "preferences" ? "chosen" : ""}
           onClick={() => setTab("preferences")}
         >
-          Preferences{changed ? " · unsaved" : ""}
+          {models ? "Default choices" : "Workspace preferences"}
+          {changed ? " · unsaved" : ""}
         </button>
-        <button
-          className={tab === "setup" ? "chosen" : ""}
-          onClick={() => setTab("setup")}
-        >
-          Tool setup & downloads
-        </button>
-        <button
-          className={tab === "system" ? "chosen" : ""}
-          onClick={() => setTab("system")}
-        >
-          System & drivers
-        </button>
+        {models ? (
+          <>
+            <button
+              className={tab === "setup" ? "chosen" : ""}
+              onClick={() => setTab("setup")}
+            >
+              Setup &amp; downloads
+            </button>
+            <button
+              className={tab === "memory" ? "chosen" : ""}
+              onClick={() => setTab("memory")}
+            >
+              Keep ready
+            </button>
+            <button
+              className={tab === "packages" ? "chosen" : ""}
+              onClick={() => setTab("packages")}
+            >
+              Runtime packages
+            </button>
+          </>
+        ) : (
+          <>
+            <button
+              className={tab === "system" ? "chosen" : ""}
+              onClick={() => setTab("system")}
+            >
+              System &amp; drivers
+            </button>
+            <button
+              className={tab === "network" ? "chosen" : ""}
+              onClick={() => setTab("network")}
+            >
+              Network access
+            </button>
+            <button onClick={onWiki}>Studio wiki</button>
+          </>
+        )}
       </div>
       <div className="settings-layout">
         <div>
-          <div hidden={tab !== "preferences"}>
-            <section className="panel settings-section">
-              <div className="section-heading">
-                <div>
-                  <h2>Default creation tools</h2>
-                  <p className="helper">
-                    Set your preferences once. You can change them for each
-                    request.
-                  </p>
-                </div>
-                <Settings2 size={21} />
-              </div>
-              <div className="default-models">
-                {labels.map(([task, Icon, title, description]) => (
-                  <div className="default-model" key={task}>
-                    <div className="setting-icon">
-                      <Icon size={20} />
-                    </div>
-                    <div>
-                      <h3>{title}</h3>
-                      <p className="helper">{description}</p>
-                      <ModelChoice
-                        tools={tools}
-                        task={task}
-                        value={draft.defaults?.[task] || "auto"}
-                        label={`${title} model`}
-                        onChange={(value) =>
-                          update("defaults", { [task]: value })
-                        }
-                        details
-                      />
-                    </div>
+          <div hidden={!["preferences", "memory"].includes(tab)}>
+            <div hidden={!models || tab !== "preferences"}>
+              <section className="panel settings-section">
+                <div className="section-heading">
+                  <div>
+                    <h2>Default creation tools</h2>
+                    <p className="helper">
+                      Set your preferences once. You can change them for each
+                      request.
+                    </p>
                   </div>
-                ))}
-              </div>
-            </section>
-            <section className="panel settings-section">
-              <h2>Chat &amp; coding memory</h2>
-              <p>
-                Defaults for new Qwen3.8 MXFP4 + DFlash2 conversations and
-                coding agents. Existing chats keep their own settings.
-              </p>
-              <ConversationControls
-                value={draft.conversation}
-                onChange={(value) => update("conversation", value)}
-              />
-            </section>
-            <section className="panel settings-section">
-              <h2>Workspace preferences</h2>
-              <label className="preference-row">
-                <span>
-                  <strong>Detailed GPU readings</strong>
-                  <small>
-                    Show memory, temperature and power beside activity.
-                  </small>
-                </span>
-                <input
-                  type="checkbox"
-                  checked={draft.appearance?.show_gpu_details ?? true}
-                  onChange={(event) =>
-                    update("appearance", {
-                      show_gpu_details: event.target.checked,
-                    })
-                  }
+                  <Settings2 size={21} />
+                </div>
+                <div className="default-models">
+                  {labels.map(([task, Icon, title, description]) => (
+                    <div className="default-model" key={task}>
+                      <div className="setting-icon">
+                        <Icon size={20} />
+                      </div>
+                      <div className="default-model-fields">
+                        <h3>{title}</h3>
+                        <p className="helper">{description}</p>
+                        <ModelChoice
+                          tools={tools}
+                          task={task}
+                          value={draft.defaults?.[task] || "auto"}
+                          conversation={draft.conversation}
+                          label={`${title} model`}
+                          onChange={(value) =>
+                            update("defaults", { [task]: value })
+                          }
+                          details
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </section>
+              <section className="panel settings-section">
+                <h2>Chat &amp; coding memory</h2>
+                <p>
+                  Defaults for new Qwen3.8 MXFP4 + DFlash2 conversations and
+                  coding agents. Existing chats keep their own settings.
+                </p>
+                <ConversationControls
+                  value={draft.conversation}
+                  onChange={(value) => update("conversation", value)}
                 />
-              </label>
-              <label className="preference-row">
-                <span>
-                  <strong>Compact queue history</strong>
-                  <small>
-                    Keep finished requests collapsed while you create.
-                  </small>
-                </span>
-                <input
-                  type="checkbox"
-                  checked={draft.appearance?.compact_queue ?? false}
-                  onChange={(event) =>
-                    update("appearance", {
-                      compact_queue: event.target.checked,
-                    })
-                  }
-                />
-              </label>
-              <details>
-                <summary>Generation defaults</summary>
-                <label>
-                  Default seed
+              </section>
+            </div>
+            <div hidden={models || tab !== "preferences"}>
+              <section className="panel settings-section">
+                <h2>Workspace preferences</h2>
+                <label className="preference-row">
+                  <span>
+                    <strong>Detailed GPU readings</strong>
+                    <small>
+                      Show memory, temperature and power beside activity.
+                    </small>
+                  </span>
                   <input
-                    type="number"
-                    min="0"
-                    max="9007199254740991"
-                    value={draft.generation?.seed ?? 771}
+                    type="checkbox"
+                    checked={draft.appearance?.show_gpu_details ?? true}
                     onChange={(event) =>
-                      update("generation", { seed: Number(event.target.value) })
+                      update("appearance", {
+                        show_gpu_details: event.target.checked,
+                      })
                     }
                   />
                 </label>
-                <p className="helper">
-                  A repeatable starting seed for new image and video requests.
-                  Saved project settings take precedence.
-                </p>
-              </details>
-            </section>
-            <ModelMemorySettings
-              value={draft.performance?.keep_ready_minutes ?? 2}
-              memory={modelMemory}
-              onChange={(keep_ready_minutes) =>
-                update("performance", { keep_ready_minutes })
-              }
-              onSystem={() => setTab("system")}
-            />
+                <label className="preference-row">
+                  <span>
+                    <strong>Compact queue history</strong>
+                    <small>
+                      Keep finished requests collapsed while you create.
+                    </small>
+                  </span>
+                  <input
+                    type="checkbox"
+                    checked={draft.appearance?.compact_queue ?? false}
+                    onChange={(event) =>
+                      update("appearance", {
+                        compact_queue: event.target.checked,
+                      })
+                    }
+                  />
+                </label>
+                <details>
+                  <summary>Generation defaults</summary>
+                  <label>
+                    Default seed
+                    <input
+                      type="number"
+                      min="0"
+                      max="9007199254740991"
+                      value={draft.generation?.seed ?? 771}
+                      onChange={(event) =>
+                        update("generation", {
+                          seed: Number(event.target.value),
+                        })
+                      }
+                    />
+                  </label>
+                  <p className="helper">
+                    A repeatable starting seed for new image and video requests.
+                    Saved project settings take precedence.
+                  </p>
+                </details>
+              </section>
+            </div>
+            {models && tab === "memory" && (
+              <ModelMemorySettings
+                api={api}
+                report={report}
+                value={draft.performance?.keep_ready_minutes ?? 15}
+                memory={modelMemory}
+                onChange={(keep_ready_minutes) =>
+                  update("performance", { keep_ready_minutes })
+                }
+              />
+            )}
             <div className="settings-save">
               <span role="status">
                 {saved
@@ -566,15 +630,23 @@ export function StudioSettings({
           {tab === "setup" && (
             <SetupTools api={api} report={report} onTools={onToolsRefresh} />
           )}
+          {!models && tab === "network" && <NetworkAccess api={api} />}
           {tab === "system" && (
             <>
-              <ReadinessPanel api={api} onSetup={() => setTab("setup")} />
+              <ReadinessPanel api={api} onSetup={onSetup || onTools} />
               <SystemDetails api={api} />
             </>
           )}
+          {tab === "packages" && (
+            <RuntimePackages
+              api={api}
+              onToolsRefresh={onToolsRefresh}
+              tools={tools}
+              memory={modelMemory}
+            />
+          )}
         </div>
         <aside className="settings-aside">
-          <MachineStatus gpu={gpu} />
           <div className="panel">
             <div className="setting-icon">
               <Cpu size={22} />
@@ -586,7 +658,7 @@ export function StudioSettings({
                   {gpu.name || gpu.model || "Detected graphics card"}
                 </strong>
                 <span>
-                  {(gpu.total / 1024 ** 3).toFixed(0)} GB GPU memory
+                  {(gpu.total / 1024 ** 3).toFixed(0)} GiB GPU memory
                   {gpu.architecture ? ` · ${gpu.architecture}` : ""}
                 </span>
                 <p>
@@ -611,7 +683,7 @@ export function StudioSettings({
                 <b>
                   {reading(
                     (settings.storage?.bytes ?? 0) / 1024 ** 3,
-                    " GB",
+                    " GiB",
                     2,
                   )}
                 </b>
@@ -620,7 +692,11 @@ export function StudioSettings({
                 Available disk
                 <b>
                   {Number.isFinite(settings.storage?.free_bytes)
-                    ? reading(settings.storage.free_bytes / 1024 ** 3, " GB", 1)
+                    ? reading(
+                        settings.storage.free_bytes / 1024 ** 3,
+                        " GiB",
+                        1,
+                      )
                     : "—"}
                 </b>
               </span>

@@ -36,6 +36,11 @@
   line-height: 1.5;
   color: var(--studio-text-muted, #a5a8ae);
 }
+.conversation-option select {
+  min-width: 0;
+  max-width: 55%;
+  flex: 0 1 190px;
+}
 .conversation-option input[type="checkbox"] {
   flex: 0 0 auto;
   width: 18px;

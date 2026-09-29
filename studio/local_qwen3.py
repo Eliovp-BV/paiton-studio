@@ -79,6 +79,7 @@ class LocalQwen3Validator:
         name = 'paiton-studio-package-check-'+nonce
         try:
             result = command(['run','--rm','--pull=never','--network','none','--read-only',
+                '--cap-drop','ALL','--security-opt','no-new-privileges',
                 '--name',name,'--label','dev.paiton.studio.owner='+owner,
                 '--label','dev.paiton.studio.probe='+nonce,'--entrypoint','python3',image,'-c',PACKAGE_PROBE])
         finally:

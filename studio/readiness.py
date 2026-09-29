@@ -31,8 +31,11 @@ def report(snapshot, tools):
         models.append(dict(id=tool['id'], name=tool['name'], model=tool['model'], state=state,
                            installed=bool(tool.get('installed')), integrated=tool['integrated'],
                            hardware=hardware, blockers=list(dict.fromkeys(b for b in blockers if b)),
-                           profiles=profiles, quality_note=tool.get('quality_note'),
+                           profiles=profiles, quality_note=tool.get('quality_note'), qualified=tool.get('qualified', True),
                            next_action='create' if state == 'ready' else 'setup' if state == 'setup_required' else 'review'))
+        for key in ('release_states','optional_components'):
+            if key in tool:
+                models[-1][key]=tool[key]
     capabilities = []
     for role, name in ROLE_NAMES.items():
         candidates = [m for m in models if any(role in (p['roles'] or []) for p in m['profiles'])]

@@ -1,10 +1,10 @@
 // Browser regression fixtures only. Every API request is intercepted: no live
 // Studio data, generation, containers, or GPU work is used by this test.
-import { chromium } from "playwright";
+import { chromium } from "./browser_support.mjs";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 
-const base = process.env.STUDIO_TEST_URL || "http://127.0.0.1:8896";
+const base = process.env.STUDIO_TEST_URL;
 const browser = await chromium.launch({
   headless: true,
   executablePath: process.env.STUDIO_CHROMIUM,
@@ -124,6 +124,12 @@ async function checkDelayedResponse(operation) {
         generation: { seed: 771 },
         storage: {},
       };
+    else if (path === "/api/meetings/readiness") data = { ready: false };
+    else if (path === "/api/host-guidance")
+      data = { needs_attention: false, checks: [] };
+    else if (path === "/api/inbox") data = { events: [], unread_count: 0 };
+    else if (/^\/api\/projects\/[a-f0-9]{32}\/brief$/.test(path))
+      data = { content: "", revision: 0 };
     else if (path === "/api/tools") data = [];
     else if (path === "/api/status")
       data = {
@@ -203,9 +209,11 @@ async function checkDelayedResponse(operation) {
   try {
     await page.goto(base);
     await page
-      .getByRole("heading", { name: "Create without limits." })
+      .getByRole("heading", { name: "Create without the cloud." })
       .waitFor();
-    await page.getByRole("button", { name: "Build Page", exact: true }).click();
+    await page.evaluate(() => {
+      location.hash = "page";
+    });
     await page.getByRole("heading", { name: "Build your website" }).waitFor();
     await page
       .getByRole("button", {
@@ -226,7 +234,9 @@ async function checkDelayedResponse(operation) {
     await page
       .getByRole("heading", { name: "Second browser fixture", exact: true })
       .waitFor();
-    await page.getByRole("button", { name: "Build Page", exact: true }).click();
+    await page.evaluate(() => {
+      location.hash = "page";
+    });
     await page.getByRole("heading", { name: "Build your website" }).waitFor();
     assert.equal(
       await page
@@ -264,9 +274,11 @@ async function checkDelayedResponse(operation) {
       .getByRole("button", { name: "Home", exact: true })
       .click();
     await page
-      .getByRole("heading", { name: "Create without limits." })
+      .getByRole("heading", { name: "Create without the cloud." })
       .waitFor();
-    await page.getByRole("button", { name: "Build Page", exact: true }).click();
+    await page.evaluate(() => {
+      location.hash = "page";
+    });
     await page.getByRole("heading", { name: "Build your website" }).waitFor();
     assert.equal(
       await page

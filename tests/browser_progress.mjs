@@ -1,9 +1,9 @@
 // Explicit UI fixtures only. All API calls are intercepted; no inference,
 // models, Docker, or live Studio state are touched.
-import { chromium } from "playwright";
+import { chromium } from "./browser_support.mjs";
 import assert from "node:assert/strict";
 import fs from "node:fs";
-const base = process.env.STUDIO_TEST_URL || "http://127.0.0.1:8896";
+const base = process.env.STUDIO_TEST_URL;
 const browser = await chromium.launch({
   headless: true,
   executablePath: process.env.STUDIO_CHROMIUM,
@@ -46,6 +46,12 @@ await page.route("**/api/**", async (route) => {
     status = 200;
   if (path === "/api/session") data = { token: "ui-fixture-token" };
   else if (path === "/api/settings") data = settings;
+  else if (path === "/api/meetings/readiness") data = { ready: false };
+  else if (path === "/api/host-guidance")
+    data = { needs_attention: false, checks: [] };
+  else if (path === "/api/inbox") data = { events: [], unread_count: 0 };
+  else if (/^\/api\/projects\/[a-f0-9]{32}\/brief$/.test(path))
+    data = { content: "", revision: 0 };
   else if (path === "/api/tools") data = [];
   else if (path === "/api/status")
     data = {
@@ -123,8 +129,12 @@ await page.route("**/api/**", async (route) => {
 });
 try {
   await page.goto(base);
-  await page.getByRole("heading", { name: "Create without limits." }).waitFor();
-  await page.getByRole("button", { name: "Build Page", exact: true }).click();
+  await page
+    .getByRole("heading", { name: "Create without the cloud." })
+    .waitFor();
+  await page.evaluate(() => {
+    location.hash = "page";
+  });
   await page.getByRole("heading", { name: "Build your website" }).waitFor();
   await page
     .getByRole("button", { name: "Generate website", exact: true })
@@ -176,12 +186,16 @@ try {
     .getByRole("navigation", { name: "Main navigation" })
     .getByRole("button", { name: "Home", exact: true })
     .click();
-  await page.getByRole("heading", { name: "Create without limits." }).waitFor();
+  await page
+    .getByRole("heading", { name: "Create without the cloud." })
+    .waitFor();
   assert.equal(
-    await page.getByRole("complementary", { name: "Design finished" }).count(),
+    await page.getByRole("complementary", { name: "Website ready" }).count(),
     0,
   );
-  await page.getByRole("button", { name: "Build Page", exact: true }).click();
+  await page.evaluate(() => {
+    location.hash = "page";
+  });
   await page
     .getByText("1 of 2 creation tasks complete", { exact: false })
     .waitFor();
@@ -203,7 +217,12 @@ try {
     ],
   };
   jobs = jobs.map((j) => ({ ...j, state: "completed" }));
-  const finished = page.getByRole("complementary", { name: "Design finished" });
+  await page.getByRole("button", { name: "Activity", exact: true }).click();
+  await page
+    .locator(".activity-tabs")
+    .getByRole("button", { name: /^Website reviews/ })
+    .click();
+  const finished = page.getByRole("complementary", { name: "Website ready" });
   await finished.waitFor({ timeout: 10000 });
   await finished.getByText("2 min 13 sec", { exact: true }).waitFor();
   await finished.getByText("2 pages", { exact: true }).waitFor();
@@ -233,9 +252,11 @@ try {
     .getByRole("navigation", { name: "Main navigation" })
     .getByRole("button", { name: "Home", exact: true })
     .click();
-  await page.getByRole("heading", { name: "Create without limits." }).waitFor();
+  await page
+    .getByRole("heading", { name: "Create without the cloud." })
+    .waitFor();
   assert.equal(
-    await page.getByRole("complementary", { name: "Design finished" }).count(),
+    await page.getByRole("complementary", { name: "Website ready" }).count(),
     0,
   );
   assert.equal(generationRequests, 1);

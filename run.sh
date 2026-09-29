@@ -41,4 +41,6 @@ MESSAGE
   exit 1
 fi
 
+studio_version="$(.venv/bin/python -c 'from studio.version import label; print(label())' 2>/dev/null || true)"
+echo "Starting Paiton ${studio_version:-Studio} on ${PAITON_STUDIO_HOST:-0.0.0.0}:${PAITON_STUDIO_PORT:-8877}"
 exec .venv/bin/python -m uvicorn studio.app:app --host "${PAITON_STUDIO_HOST:-0.0.0.0}" --port "${PAITON_STUDIO_PORT:-8877}" --no-proxy-headers --no-access-log "$@"

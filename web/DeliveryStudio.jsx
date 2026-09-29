@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import { Download, Film, ArrowRight, Scissors, Cpu } from "lucide-react";
+import { stateLabel } from "./jobStates";
 
 const ACTIVE = ["queued", "encoding", "cancelling"];
 export default function DeliveryStudio({
@@ -255,7 +256,7 @@ export default function DeliveryStudio({
             <article className="panel" key={job.id}>
               <div className="section-heading">
                 <strong>{job.request.source_name}</strong>
-                <span className="badge">{job.state}</span>
+                <span className="badge">{stateLabel(job.state)}</span>
               </div>
               <p className="helper">
                 {presets[job.request.preset]?.label} ·{" "}

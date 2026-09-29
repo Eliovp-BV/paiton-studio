@@ -1,9 +1,9 @@
 // Intercepted UI fixtures only. No inference, live Studio data or model setup.
-import { chromium } from "playwright";
+import { chromium } from "./browser_support.mjs";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 
-const base = process.env.STUDIO_TEST_URL || "http://127.0.0.1:8897";
+const base = process.env.STUDIO_TEST_URL;
 const browser = await chromium.launch({
   headless: true,
   executablePath: process.env.STUDIO_CHROMIUM,
@@ -106,7 +106,11 @@ await page.route("**/api/**", async (route) => {
   else if (path === "/api/settings" && method === "PUT") {
     settingsWrites.push(request.postDataJSON());
     data = settings;
-  } else if (path === "/api/tools") data = tools;
+  } else if (path === "/api/meetings/readiness") data = { ready: false };
+  else if (path === "/api/inbox") data = { events: [], unread_count: 0 };
+  else if (/^\/api\/projects\/[a-f0-9]{32}\/brief$/.test(path))
+    data = { content: "", revision: 0 };
+  else if (path === "/api/tools") data = tools;
   else if (path === "/api/status")
     data = {
       jobs: [],
@@ -164,7 +168,9 @@ try {
   await page
     .getByRole("heading", { name: "Create without the cloud." })
     .waitFor();
-  await page.getByRole("button", { name: "Write", exact: true }).click();
+  await page.evaluate(() => {
+    location.hash = "write";
+  });
   const writing = page.getByRole("combobox", {
     name: "Writing model",
     exact: true,
@@ -184,7 +190,9 @@ try {
   await describedNote(writing, profileNote);
   assert.equal(await page.getByText(packageNote, { exact: true }).count(), 0);
 
-  await page.getByRole("button", { name: "Build Page", exact: true }).click();
+  await page.evaluate(() => {
+    location.hash = "page";
+  });
   await page.getByRole("heading", { name: "Build your website" }).waitFor();
   await page.getByText("Tools & appearance", { exact: true }).click();
   const website = page.getByRole("combobox", {
@@ -194,9 +202,11 @@ try {
   assert.deepEqual(await optionValues(website), ["auto", "larger-website"]);
   assert.equal(await website.getAttribute("aria-describedby"), null);
 
-  await page.getByRole("button", { name: "Settings", exact: true }).click();
+  await page.evaluate(() => {
+    location.hash = "model-defaults";
+  });
   await page
-    .getByRole("heading", { name: "Make Studio yours.", exact: true })
+    .getByRole("heading", { name: "Default creation tools", exact: true })
     .waitFor();
   const defaultWriting = page.getByRole("combobox", {
     name: "Writing model",

@@ -91,7 +91,7 @@ def prepare_harmony(runtime,job,image):
     container=None
     try:
         result=runtime.command(['create','--pull=never','--name','paiton-studio-vocab-'+job['id'],
-            '--label',LABEL+'='+runtime.owner,'--network','none','--entrypoint','cat',image,'/opt/paiton/harmony-cache/'+name])
+            '--label',LABEL+'='+runtime.owner,'--network','none','--cap-drop','ALL','--security-opt','no-new-privileges','--entrypoint','cat',image,'/opt/paiton/harmony-cache/'+name])
         if result.returncode:raise ValueError('Could not prepare the offline chat vocabulary.')
         container=result.stdout.strip()
         runtime.store.status(job['id'],'preparing','Preparing the verified offline chat vocabulary.',container=container)

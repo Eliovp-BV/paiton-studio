@@ -103,7 +103,7 @@ def test_api_disables_each_incompatible_profile_and_rejects_submission(tmp_path,
     from studio.app import create_app
     monkeypatch.setattr('studio.app.gpu_status', lambda: device(16, 'AMD Radeon RX 9070'))
     monkeypatch.setattr('studio.preferences.gpu_status', lambda: device(16, 'AMD Radeon RX 9070'))
-    monkeypatch.setattr(Runtime, 'preflight', lambda self, request: 'fixture-installed')
+    monkeypatch.setattr(Runtime, 'preflight', lambda self, request, *, verify_content=True: 'fixture-installed')
     app = create_app(tmp_path, config={}, worker_enabled=False)
     with TestClient(app) as client:
         client.headers['X-Studio-Token'] = client.get('/api/session').json()['token']

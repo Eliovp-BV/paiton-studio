@@ -4,10 +4,11 @@ from studio.runtime import Runtime
 
 def runtime_with_warm():
     runtime = object.__new__(Runtime)
-    runtime._chat_active_until = 0
+    runtime.warm_seconds = 60
+    runtime._chat_active_at = 0
     runtime.config = {'minicpm5_image':'image-a', 'gptoss_image':'image-a'}
     runtime._warm = {'package':'minicpm5-2b', 'revision':'revision-a', 'image':'image-a',
-                     'until':time.monotonic()+60}
+                     'since':time.monotonic()}
     return runtime
 
 
@@ -23,7 +24,7 @@ def test_warm_reuse_requires_package_revision_and_image():
 
 def test_expired_runtime_is_not_reused():
     runtime = runtime_with_warm()
-    runtime._warm['until'] = time.monotonic()-1
+    runtime._warm['since'] = time.monotonic()-61
     assert not runtime.warm_for({'profile':{'package':'minicpm5-2b','revision':'revision-a'}})
 
 

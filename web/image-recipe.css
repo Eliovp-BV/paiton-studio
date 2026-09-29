@@ -1,0 +1,92 @@
+.image-recipe {
+  margin-top: 12px;
+  min-width: 0;
+  text-align: left;
+}
+
+.image-recipe summary {
+  cursor: pointer;
+  font-size: 0.82rem;
+}
+
+.image-recipe dl {
+  display: grid;
+  grid-template-columns: minmax(75px, auto) minmax(0, 1fr);
+  gap: 8px 12px;
+  font-size: 0.8rem;
+  line-height: 1.5;
+}
+
+.image-recipe dt {
+  font-weight: 600;
+}
+
+.image-recipe dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.image-recipe-prompt {
+  white-space: pre-wrap;
+}
+
+.image-seed-control {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.image-seed-control input {
+  flex: 1;
+  min-width: 0;
+}
+
+.image-seed-control button {
+  flex: 0 0 auto;
+}
+
+.image-count-control {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.image-count-control select {
+  flex: 0 0 auto;
+  width: auto;
+  min-width: 72px;
+}
+
+.image-count-control .helper {
+  margin: 0;
+}
+
+.creation-form .prompt-limit {
+  margin: 0 0 12px;
+  font-size: 0.78rem;
+}
+
+.creation-form .prompt-limit[role="alert"] {
+  color: #b42318;
+  font-weight: 600;
+}
+
+.visual-workbench .image-edit-source .source-preview {
+  aspect-ratio: auto;
+  height: 180px;
+  margin-bottom: 12px;
+}
+
+.image-edit-source .source-preview img {
+  width: 100%;
+  object-fit: contain;
+}
+
+.image-edit-source .source-preview .empty {
+  padding: 12px;
+}
+
+.image-edit-source select {
+  width: 100%;
+  min-width: 0;
+}

@@ -1,0 +1,45 @@
+.studio-diagnostics {
+  display: block;
+  min-width: 0;
+  max-width: 100%;
+  margin: 10px 0;
+  font-size: 0.88rem;
+}
+.studio-diagnostics > summary {
+  width: fit-content;
+  cursor: pointer;
+}
+.studio-diagnostics pre,
+.studio-diagnostics textarea {
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 100%;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font:
+    0.8rem/1.5 ui-monospace,
+    monospace;
+}
+.studio-diagnostics pre {
+  max-height: 20rem;
+  overflow: auto;
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--studio-bg);
+}
+.studio-diagnostics textarea {
+  min-height: 10rem;
+  resize: vertical;
+}
+.diagnostics-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.diagnostics-error,
+.diagnostics-manual-copy {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}

@@ -165,7 +165,7 @@ export function CapabilityShelf({ tools, onNavigate }) {
     [
       "chat",
       MessageSquare,
-      "GPT & assistants",
+      "Chat & assistants",
       "Think, plan and create.",
       "text.chat",
     ],

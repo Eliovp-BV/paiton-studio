@@ -8,13 +8,13 @@ def test_presence_keeps_loaded_model_beyond_reply_timeout_then_expires(tmp_path,
     clock=[1000.0]
     monkeypatch.setattr('studio.runtime.time.monotonic',lambda:clock[0])
     runtime=Runtime(Store(tmp_path),{'gptoss_image':'pinned'})
-    runtime._warm={'container':'owned','image':'pinned','until':1120,'package':'gptoss','revision':'pinned-revision'}
+    runtime._warm={'container':'owned','image':'pinned','since':1000,'package':'gptoss','revision':'pinned-revision'}
     clock[0]=1110;runtime.touch_chat()
-    clock[0]=1200
+    clock[0]=2000
     assert not runtime.warm_expired()
     assert runtime.warm_for({'profile':{'package':'gptoss','revision':'pinned-revision'}})
     assert not runtime.warm_for({'profile':{'package':'flux'}})
-    clock[0]=1231
+    clock[0]=2011
     assert runtime.warm_expired()
     assert not runtime.warm_for({'profile':{'package':'gptoss','revision':'pinned-revision'}})
 

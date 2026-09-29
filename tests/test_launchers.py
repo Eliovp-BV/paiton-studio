@@ -25,7 +25,9 @@ def workspace(tmp_path, *, python=True, dependencies=True, built=True):
         interpreter.write_text(
             '#!/usr/bin/env python3\n'
             'import json, pathlib, sys\n'
-            f'if sys.argv[1:2] == ["-c"]: sys.exit({0 if dependencies else 1})\n'
+            'if sys.argv[1:2] == ["-c"]:\n'
+            '    if "studio.version" in sys.argv[2]: print("Studio 1.2.3 (abc1234)")\n'
+            f'    sys.exit({0 if dependencies else 1})\n'
             'pathlib.Path("launch-argv.json").write_text(json.dumps(sys.argv[1:]))\n'
         )
         interpreter.chmod(0o755)
@@ -59,7 +61,8 @@ def test_missing_setup_has_actionable_instructions_and_does_not_start(tmp_path, 
 
 def test_normal_launch_keeps_lan_defaults_and_security_flags(tmp_path):
     root = workspace(tmp_path)
-    assert launch(root).returncode == 0
+    result = launch(root)
+    assert result.returncode == 0 and result.stdout.startswith('Starting Paiton Studio 1.2.3 (abc1234) on 0.0.0.0:8877')
     assert json.loads((root / 'launch-argv.json').read_text()) == [
         '-m', 'uvicorn', 'studio.app:app', '--host', '0.0.0.0', '--port', '8877',
         '--no-proxy-headers', '--no-access-log',

@@ -87,7 +87,7 @@ def test_readiness_api_is_read_only_and_loads_no_models(tmp_path, monkeypatch):
     from studio.runtime import Runtime
     monkeypatch.setattr('studio.app.gpu_status', gpu)
     monkeypatch.setattr('studio.app.SystemInfo.snapshot', lambda self: host())
-    monkeypatch.setattr(Runtime, 'preflight', lambda *a: 'fixture-local-package')
+    monkeypatch.setattr(Runtime, 'preflight', lambda *a, verify_content=True: 'fixture-local-package')
     monkeypatch.setattr(Runtime, 'run', lambda *a: pytest.fail('Readiness must never generate'))
     app = create_app(tmp_path, config={}, worker_enabled=False)
     with TestClient(app) as client:
@@ -100,3 +100,28 @@ def test_readiness_api_is_read_only_and_loads_no_models(tmp_path, monkeypatch):
         assert client.get('/api/projects').json() == []
         assert app.state.store.rows('SELECT id FROM jobs') == []
         assert app.state.store.rows('SELECT id FROM setup_jobs') == []
+
+
+def test_packages_pending_gpu_testing_report_qualified_false_without_changing_state(tmp_path, monkeypatch):
+    from fastapi.testclient import TestClient
+    from studio.app import create_app
+    from studio.registry import PACKAGES, package
+    from studio.runtime import Runtime
+    assert package('qwen-image21-uncensored')['qualified'] is False
+    assert package('qwen-image21')['qualified'] is True
+    assert all(isinstance(item.get('qualified'), bool) for item in PACKAGES)
+    unqualified = {**tool(), 'qualified': False}
+    models = {m['id']: m for m in report(host(), [tool(), {**unqualified, 'id': 'pending'}])['models']}
+    assert models['future-qualified']['qualified'] is True and models['pending']['qualified'] is False
+    assert models['pending']['state'] == 'ready'
+    monkeypatch.setattr('studio.app.gpu_status', gpu)
+    monkeypatch.setattr('studio.app.SystemInfo.snapshot', lambda self: host())
+    monkeypatch.setattr(Runtime, 'preflight', lambda *a, verify_content=True: 'fixture-local-package')
+    app = create_app(tmp_path, config={}, worker_enabled=False)
+    with TestClient(app) as client:
+        client.get('/api/session')
+        tools = {item['id']: item for item in client.get('/api/tools').json()}
+        assert tools['qwen-image21-uncensored']['qualified'] is False and tools['qwen-image21']['qualified'] is True
+        assert tools['qwen-image21-uncensored']['state'] == 'ready' == tools['qwen-image21']['state']
+        readiness = {m['id']: m for m in client.get('/api/readiness').json()['models']}
+        assert readiness['qwen-image21-uncensored']['qualified'] is False and readiness['qwen-image21']['qualified'] is True

@@ -1,0 +1,27 @@
+.performance-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  margin: 10px 0;
+  color: var(--muted);
+  font-size: 0.85rem;
+  font-variant-numeric: tabular-nums;
+}
+.performance-summary span {
+  white-space: nowrap;
+}
+.performance-details {
+  margin: 10px 0;
+  font-size: 0.85rem;
+}
+.performance-details dl {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 6px 16px;
+}
+.performance-details dd {
+  margin: 0;
+}
+.queue-estimate {
+  font-variant-numeric: tabular-nums;
+}

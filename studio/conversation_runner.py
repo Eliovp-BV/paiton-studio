@@ -1,16 +1,18 @@
 """Bounded local conversation/tool loop under Runtime's existing GPU ownership."""
 from copy import deepcopy
 import json
+import uuid
 from .conversation_memory import select_context, record_request, records, digest
 from .project_tools import ProjectTools
 from .store import atomic
+from .performance import inference_breakdown
 
 
 def run(runtime, job, container, port, body, directory):
     store=runtime.store; request=job['request']; profile=request['profile']
     checks=lambda: runtime.check_cancel(job)
     ceiling=profile['context']; counter=0; summary_counter=-1; selections=[]
-    exchange=[]; artifacts=[]; toolkit=ProjectTools(store)
+    exchange=[]; artifacts=[]; toolkit=ProjectTools(store); measurements=[]
     previous={r['round']:r for r in records(store,job['id'])}
 
     def tokenize(value):
@@ -28,10 +30,13 @@ def run(runtime, job, container, port, body, directory):
         if saved and saved['response'] is not None:
             if digest(saved['body'])!=digest(value):
                 raise ValueError('This retry no longer matches its saved request. Start a new turn; completed drafts are preserved.')
-            return saved['response']
+            response=saved['response']
+            remember(response,internal,'replayed')
+            return response
         record_request(store,job['id'],number,value,selection)
         path=directory/'calls'/str(number); path.mkdir(parents=True,exist_ok=True)
-        atomic(path/'writing-request.json',json.dumps(dict(port=port,body=value,internal=internal)).encode())
+        atomic(path/'writing-request.json',json.dumps(dict(port=port,body=value,internal=internal,
+                                                         invocation_nonce=uuid.uuid4().hex)).encode())
         runtime.stream(job,['exec',container,'python3','/studio/chat_stream.py',
                            '/studio-jobs/'+job['id']+'/calls/'+str(number)],limit=630)
         checks()
@@ -39,10 +44,17 @@ def run(runtime, job, container, port, body, directory):
         if response.get('error'):
             raise ValueError(response['error']['message'])
         record_request(store,job['id'],number,value,selection,response)
+        remember(response,internal,'fresh')
         return response
 
+    def remember(response, internal, execution):
+        message=response['choices'][0]['message']
+        measurements.append(dict(response=response,execution=execution,
+                                 phase='summary' if internal else 'tool' if message.get('tool_calls') else 'final'))
+
     def summarize(value):
-        store.status(job['id'],'generating','Summarizing older material locally. Original messages stay saved.')
+        store.status(job['id'],'generating','Summarizing older material locally. Original messages stay saved.',
+                     store.job(job['id']).get('progress'))
         response=complete(value,-int(digest(value)[:12],16)-1,dict(internal='summary',input_tokens=tokenize(value)),True)
         choice=response['choices'][0]
         if choice['finish_reason']!='stop': raise ValueError('The continuation summary was cut short. Choose Longer context; original messages remain saved.')
@@ -56,8 +68,11 @@ def run(runtime, job, container, port, body, directory):
         selected,selection=select_context(store,request.get('chat_id') or request.get('agent_run_id') or job['id'],
             original,ceiling,tokenize,summarize,checks)
         selections.append(selection)
+        progress={'context':selection}
+        visible=(store.job(job['id']).get('progress') or {}).get('text')
+        if visible:progress['text']=visible
         store.status(job['id'],'generating','Working with your selected project sources.' if tools_enabled else 'Preparing your conversation reply.',
-                     {'context':selection})
+                     progress)
         response=complete(selected,counter,selection)
         choice=response['choices'][0]; message=choice['message']; calls=message.get('tool_calls') or []
         if not calls:
@@ -67,7 +82,8 @@ def run(runtime, job, container, port, body, directory):
             atomic(directory/'conversation-exchange.json',json.dumps(exchange).encode())
             atomic(directory/'writing-request.json',json.dumps(dict(port=port,body=selected)).encode())
             atomic(directory/'writing-result.json',json.dumps(response).encode())
-            return response,dict(context=selection,tool_artifacts=artifacts,tool_rounds=counter,timing=response.get('timing'))
+            return response,dict(context=selection,tool_artifacts=artifacts,tool_rounds=counter,timing=response.get('timing'),
+                                 inference=inference_breakdown(measurements),response_replayed=measurements[-1]['execution']=='replayed')
         if not tools_enabled or choice.get('finish_reason')!='tool_calls' or counter>=5:
             raise ValueError('Unexpected or incomplete tool calls. No new tools were run.')
         if len(calls)>8: raise ValueError('Too many tool calls in one reply.')

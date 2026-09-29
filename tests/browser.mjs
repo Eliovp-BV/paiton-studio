@@ -1,4 +1,4 @@
-import { chromium } from "playwright";
+import { chromium } from "./browser_support.mjs";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 const browser = await chromium.launch({
@@ -10,9 +10,18 @@ const context = await browser.newContext({
   reducedMotion: "reduce",
 });
 const page = await context.newPage();
+// Only the UI execution-state badge is simulated; the harness worker stays off.
+await page.route("**/api/status*", async (route) => {
+  const response = await route.fetch();
+  const data = await response.json();
+  await route.fulfill({
+    response,
+    json: { ...data, worker: { ...data.worker, state: "idle" } },
+  });
+});
 const errors = [];
 page.on("pageerror", (e) => errors.push(e.message));
-await page.goto(process.env.STUDIO_URL || "http://127.0.0.1:8877");
+await page.goto(process.env.STUDIO_URL);
 await page
   .getByRole("heading", { name: "Create without the cloud." })
   .waitFor();
@@ -57,7 +66,7 @@ const target = await page.evaluate(async () => {
   }
   return null;
 });
-assert.ok(target, "Browser test needs a project with a real image");
+assert.ok(target, "Browser test needs a project with a synthetic image");
 await page.reload();
 await page
   .getByRole("navigation", { name: "Main navigation" })
@@ -72,10 +81,9 @@ await page
   .click();
 await page.getByLabel("Project", { exact: true }).selectOption(target);
 await page.waitForTimeout(500);
-await page
-  .getByRole("navigation")
-  .getByRole("button", { name: "Image", exact: true })
-  .click();
+await page.evaluate(() => {
+  location.hash = "image";
+});
 await page
   .locator("#creation-prompt")
   .fill("A quiet woodland scene for a small campaign");
@@ -86,11 +94,10 @@ const imageJob = page
   .filter({ has: page.getByText("Image", { exact: true }) })
   .first();
 await imageJob.getByRole("button", { name: "Cancel", exact: true }).click();
-await page.getByRole("button", { name: "Close queue", exact: true }).click();
-await page
-  .getByRole("navigation")
-  .getByRole("button", { name: "Write", exact: true })
-  .click();
+await page.getByRole("button", { name: "Close activity", exact: true }).click();
+await page.evaluate(() => {
+  location.hash = "write";
+});
 await page
   .getByRole("textbox", { name: "Document editor" })
   .fill(
@@ -98,10 +105,9 @@ await page
   );
 await page.getByRole("button", { name: "Save revision", exact: true }).click();
 await page.waitForTimeout(700);
-await page
-  .getByRole("navigation")
-  .getByRole("button", { name: "Image", exact: true })
-  .click();
+await page.evaluate(() => {
+  location.hash = "image";
+});
 assert.equal(
   await page.locator("#creation-prompt").inputValue(),
   "A quiet woodland scene for a small campaign",
@@ -120,10 +126,9 @@ assert.ok(
     0,
 );
 await page.screenshot({ path: ".local/video.png", fullPage: true });
-await page
-  .getByRole("navigation")
-  .getByRole("button", { name: "Build Page", exact: true })
-  .click();
+await page.evaluate(() => {
+  location.hash = "page";
+});
 await page.getByRole("button", { name: "Single page", exact: true }).click();
 await page.getByLabel("Title", { exact: true }).fill("Woodland story");
 await page
@@ -170,7 +175,7 @@ fs.writeFileSync(
       "isolated browser-test project",
       "draft persistence",
       "document revision",
-      "real image handoff",
+      "synthetic image handoff",
       "page selection",
       "sandbox preview",
       "ZIP download",

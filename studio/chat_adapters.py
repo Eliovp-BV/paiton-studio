@@ -4,6 +4,8 @@ All ports are container loopback interfaces reached through docker exec, and
 all model inputs are read-only. No arbitrary executable or remote endpoint is
 accepted from a browser request.
 """
+from pydantic import BaseModel, ConfigDict, Field
+
 CHAT_PACKAGES = {
     'qwen38-mxfp4': {
         'image_key': 'qwen38_mxfp4_image', 'port': 8000, 'served_model': 'Qwen3.8-27B-Quark-AWQ-MXFP4',
@@ -43,9 +45,41 @@ CHAT_PACKAGES = {
 }
 
 
+# Omitted fields preserve the qualified package defaults, including the server's
+# generation configuration for top_p. Receipts distinguish that from an override.
+class SamplingSettings(BaseModel):
+    model_config = ConfigDict(extra='forbid')
+    temperature: float | None = Field(default=None, ge=0, le=2, strict=True, allow_inf_nan=False, exclude_if=lambda value: value is None)
+    top_p: float | None = Field(default=None, gt=0, le=1, strict=True, allow_inf_nan=False, exclude_if=lambda value: value is None)
+    seed: int | None = Field(default=None, ge=0, le=2**53-1, strict=True, exclude_if=lambda value: value is None)
+    max_output_tokens: int | None = Field(default=None, ge=1, le=200000, strict=True, exclude_if=lambda value: value is None)
+
+
+def resolve_chat_sampling(profile, settings, seed):
+    settings = settings or {}
+    values = SamplingSettings.model_validate({key: settings.get(key) for key in SamplingSettings.model_fields})
+    maximum = values.max_output_tokens if values.max_output_tokens is not None else profile['max_tokens']
+    if maximum > profile['max_tokens'] or maximum >= profile['context']:
+        raise ValueError(f"Choose at most {profile['max_tokens']} output tokens for this model profile.")
+    if type(seed) is not int or not 0 <= seed <= 2**53-1:
+        raise ValueError('Choose a supported sampling seed.')
+    return dict(temperature=values.temperature if values.temperature is not None else CHAT_PACKAGES[profile['package']].get('chat_temperature', 0.2),
+                top_p=values.top_p, top_p_source='runtime_default' if values.top_p is None else 'reply_setting',
+                seed=values.seed if values.seed is not None else seed,
+                max_output_tokens=maximum, system_role=settings.get('system_role') or '')
+
+
+def chat_contract(profile, runtime_ref=None):
+    contract = dict(CHAT_PACKAGES[profile['package']])
+    if profile['package'] == 'qwen38-mxfp4':
+        from .conversation_options import endpoint
+        contract.update(endpoint(profile, runtime_ref))
+    return contract
+
+
 def writing_body(request):
     profile = request['profile']
-    contract = CHAT_PACKAGES[profile['package']]
+    contract = chat_contract(profile, request.get('runtime_ref'))
     messages = request.get('messages')
     if messages is not None:
         # Only server-built website jobs can introduce the message template. The
@@ -70,9 +104,24 @@ def writing_body(request):
         messages[0]['content'] += ' Every factual product claim must be explicitly supported by the notes. Do not add claims about durability, feel, performance, safety, certifications or other qualities that were not supplied. A length target never justifies inventing facts: use a shorter draft when the notes are brief.'
     body = dict(model=contract['served_model'], messages=messages,
                 max_tokens=profile['max_tokens'], temperature=contract.get('chat_temperature', 0.2 if request.get('messages') else 0.6))
+    if request.get('model_api'):
+        limit=request.get('api_max_tokens',profile['max_tokens'])
+        temperature=request.get('api_temperature',body['temperature'])
+        if type(limit) is not int or not 1<=limit<=profile['max_tokens']:
+            raise ValueError('Invalid API output token limit.')
+        if type(temperature) not in (int,float) or not 0<=temperature<=2:
+            raise ValueError('Invalid API temperature.')
+        body.update(max_tokens=limit,temperature=temperature)
+    if request.get('chat_settings_applied') and request.get('chat_id'):
+        # New jobs carry resolved values; legacy requests can still use their
+        # saved preferences. Never look up today's conversation/global settings.
+        receipt = request.get('sampling')
+        sampling = resolve_chat_sampling(profile, receipt or request.get('chat_settings'), request.get('seed', 771))
+        body.update(max_tokens=sampling['max_output_tokens'], temperature=sampling['temperature'], seed=sampling['seed'])
+        if sampling['top_p'] is not None: body['top_p'] = sampling['top_p']
     # Preserve the queued request's seed through the runtime boundary. This is
     # a sampling input, not a promise of bit-identical output across drivers.
-    if 'seed' in request:
+    if 'seed' in request and 'seed' not in body:
         body['seed'] = request['seed']
     if contract['chat_template_kwargs']:
         body['chat_template_kwargs'] = contract['chat_template_kwargs'].copy()

@@ -1,4 +1,4 @@
-import { chromium } from "playwright";
+import { chromium } from "./browser_support.mjs";
 import assert from "node:assert/strict";
 const base = process.env.STUDIO_TEST_URL || "http://127.0.0.1:8897";
 assert.notEqual(new URL(base).port, "8877");
@@ -15,13 +15,23 @@ try {
   await p.locator(".new-project-tile").click();
   await p
     .getByRole("navigation", { name: "Main navigation" })
-    .getByRole("button", { name: "Agents", exact: true })
+    .getByRole("button", { name: "Chat", exact: true })
     .click();
-  await p.getByRole("heading", { name: "What is your purpose?" }).waitFor();
+  await p
+    .getByRole("navigation", { name: "Main navigation" })
+    .getByRole("button", { name: "Assistants", exact: true })
+    .click();
+  await p
+    .getByRole("heading", { name: "What would you like help with?" })
+    .waitFor();
+  await p.getByRole("button", { name: "New agent", exact: true }).click();
+  await p.getByRole("form", { name: "Agent setup" }).waitFor();
   for (const width of [2560, 1920, 1440, 1366, 390]) {
     await p.setViewportSize({ width, height: 900 });
-    const section = await p.locator(".agents-studio").boundingBox();
-    const form = await p.locator(".agent-builder").boundingBox();
+    const section = await p.locator(".agents-main").boundingBox();
+    const form = await p
+      .getByRole("form", { name: "Agent setup" })
+      .boundingBox();
     assert.ok(
       Math.abs(section.width - form.width) < 3,
       "Agent builder must use available workspace width at " + width,

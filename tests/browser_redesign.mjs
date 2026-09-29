@@ -1,7 +1,7 @@
 // Run against an isolated worker-disabled Studio. Real API persistence; no inference.
-import { chromium } from "playwright";
+import { chromium } from "./browser_support.mjs";
 import assert from "node:assert/strict";
-const base = process.env.STUDIO_TEST_URL || "http://127.0.0.1:8897";
+const base = process.env.STUDIO_TEST_URL;
 assert.notEqual(new URL(base).port, "8877", "Use an isolated test workspace.");
 const browser = await chromium.launch({
   headless: true,
@@ -56,38 +56,34 @@ try {
     .fill("Help me plan a short product story.");
   await page
     .locator(".command-menu")
-    .getByRole("button", { name: /Explore with GPTPaiton/ })
+    .getByRole("button", { name: /Start a chat/ })
     .click();
-  await page.getByLabel("Message GPTPaiton").waitFor();
+  await page.getByLabel("Message Chat").waitFor();
   assert.equal(
-    await page.getByLabel("Message GPTPaiton").inputValue(),
+    await page.getByLabel("Message Chat").inputValue(),
     "Help me plan a short product story.",
   );
-  await page
-    .getByRole("button", { name: "Quick replies", exact: true })
-    .click();
-  assert.equal(
-    await page.getByLabel("Reply model", { exact: true }).inputValue(),
-    "minicpm5-chat",
-  );
-  assert.equal(await page.getByLabel("Reasoning effort").isDisabled(), true);
-  await page.getByText(/Expect lower quality on complex questions/).waitFor();
-  await page.getByRole("button", { name: "Deeper work", exact: true }).click();
-  assert.equal(await page.getByLabel("Reasoning effort").isDisabled(), false);
-  await page
-    .getByRole("button", { name: "Creation tools", exact: true })
-    .click();
+  await page.locator(".chat-reply-setup > summary").click();
+  await page.locator(".chat-context-details > summary").click();
+  const conversationModel = page.getByLabel("Conversation model", {
+    exact: true,
+  });
+  await conversationModel.selectOption("minicpm5-chat");
+  assert.ok(await page.getByLabel("Reasoning effort").isDisabled());
+  await conversationModel.selectOption("gptoss-chat");
+  assert.ok(await page.getByLabel("Reasoning effort").isEnabled());
+  await page.getByLabel("Reasoning effort").selectOption("high");
+  await page.evaluate(() => {
+    location.hash = "tools";
+  });
   await page.locator(".installed-packages > summary").click();
   await page
     .locator(".tool")
     .filter({ hasText: "Small local chat & code" })
     .getByRole("button", { name: "Open workspace", exact: true })
     .click();
-  await page.getByLabel("Reply model", { exact: true }).waitFor();
-  assert.equal(
-    await page.getByLabel("Reply model", { exact: true }).inputValue(),
-    "minicpm5-chat",
-  );
+  await page.locator(".chat-reply-setup > summary").click();
+  assert.equal(await conversationModel.inputValue(), "minicpm5-chat");
   await nav("Home").click();
   for (const [width, height] of [
     [2560, 1440],
@@ -97,9 +93,7 @@ try {
     [1366, 768],
   ]) {
     await page.setViewportSize({ width, height });
-    const box = await page
-      .locator(".creative-journey .machine-details")
-      .boundingBox();
+    const box = await page.locator(".sidebar .engine-details").boundingBox();
     assert.ok(box.y + box.height <= height, `Hardware visible at ${width}`);
     const shelf = await page.locator(".creative-project-grid").boundingBox();
     const create = await page.locator(".new-project-tile").boundingBox();
@@ -121,7 +115,7 @@ try {
     );
   }
   await page
-    .getByRole("button", { name: /System details & compatibility/ })
+    .getByRole("button", { name: "System details", exact: true })
     .click();
   await page
     .getByRole("heading", { name: "Operating system & driver", exact: true })
@@ -136,17 +130,19 @@ try {
   );
   await page.getByRole("button", { name: "Toggle navigation rail" }).click();
   await page.setViewportSize({ width: 390, height: 844 });
-  for (const [route, label] of [
-    ["home", "Home"],
-    ["image", "Image"],
-    ["video", "Video"],
-    ["write", "Write"],
-    ["chat", "GPT"],
-    ["page", "Build Page"],
-    ["library", "Library"],
-    ["delivery", "Reels & shorts"],
+  for (const route of [
+    "home",
+    "image",
+    "video",
+    "write",
+    "chat",
+    "page",
+    "library",
+    "delivery",
   ]) {
-    await nav(label).click();
+    await page.evaluate((target) => {
+      location.hash = target;
+    }, route);
     await page.locator(`main[data-studio-page=${route}]`).waitFor();
     assert.equal(
       await page.evaluate(
@@ -159,7 +155,7 @@ try {
   assert.deepEqual(errors, []);
   assert.deepEqual(bad, []);
   console.log(
-    "Redesign passed: new project, launcher handoff, autosave/deep-link reload, MiniCPM speed/quality controls, capability routing, visible hardware at five desktop sizes, collapsed rail, mobile tool layouts; no inference.",
+    "Redesign passed: new project, launcher handoff, autosave/deep-link reload, MiniCPM/GPT-OSS reasoning controls, capability routing, visible hardware at five desktop sizes, collapsed rail, mobile tool layouts; no inference.",
   );
 } finally {
   await browser.close();

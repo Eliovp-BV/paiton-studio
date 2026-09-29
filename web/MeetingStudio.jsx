@@ -12,7 +12,7 @@ import {
 
 const time = (s) =>
   `${Math.floor((s || 0) / 60)}:${String(Math.floor((s || 0) % 60)).padStart(2, "0")}`;
-export default function MeetingStudio({ api, project }) {
+export default function MeetingStudio({ api, project, onReadiness }) {
   const [readiness, setReadiness] = useState(null),
     [uploadProgress, setUploadProgress] = useState(0);
   const [meetings, setMeetings] = useState([]),
@@ -36,7 +36,10 @@ export default function MeetingStudio({ api, project }) {
   useEffect(() => {
     refresh().catch((e) => setError(e.message));
     api("/meetings/readiness")
-      .then(setReadiness)
+      .then((status) => {
+        setReadiness(status);
+        onReadiness?.(status);
+      })
       .catch((e) => setError(e.message));
     return () => {
       if (capture.current?.recorder.state !== "inactive")
@@ -346,7 +349,7 @@ export default function MeetingStudio({ api, project }) {
         </label>
       </div>
       {!readiness?.ready && (
-        <div className="notice" role="status">
+        <div className="notice meeting-setup-notice" role="status">
           <strong>
             {readiness
               ? "Meeting setup required"

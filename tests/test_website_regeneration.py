@@ -1,6 +1,7 @@
 """Selective website revisions use CPU fixtures here, never simulated inference claims."""
 import copy
 import json
+import subprocess
 
 import pytest
 from fastapi.testclient import TestClient
@@ -15,7 +16,7 @@ from studio.websites import RegenerateInput, WebsiteInput, Websites
 
 @pytest.fixture
 def workflow(tmp_path, monkeypatch):
-    monkeypatch.setattr(Runtime, 'preflight', lambda self, request: 'installed-test-package')
+    monkeypatch.setattr(Runtime, 'preflight', lambda self, request, *, verify_content=True: 'installed-test-package')
     store = Store(tmp_path)
     runtime = Runtime(store, {})
     work = Websites(store, runtime, Worker(store, runtime))
@@ -280,7 +281,12 @@ def test_active_full_or_selective_run_excludes_second_run(workflow):
 
 
 def test_api_routes_use_real_queue_revision_guard_and_retry_guidance(tmp_path, monkeypatch):
-    monkeypatch.setattr(Runtime, 'preflight', lambda self, request: 'installed-test-package')
+    monkeypatch.setattr(Runtime, 'preflight', lambda self, request, *, verify_content=True: 'installed-test-package')
+    image_id = 'sha256:' + 'f' * 64
+    def image_inspect(self, args, **kwargs):
+        assert args[:2] == ['image', 'inspect'], 'This CPU fixture only identifies an installed image.'
+        return subprocess.CompletedProcess(args, 0, json.dumps([{'Id': image_id}]), '')
+    monkeypatch.setattr(Runtime, 'command', image_inspect)
     app = create_app(tmp_path, config={}, worker_enabled=False)
     with TestClient(app) as client:
         client.headers['X-Studio-Token'] = client.get('/api/session').json()['token']
@@ -291,9 +297,10 @@ def test_api_routes_use_real_queue_revision_guard_and_retry_guidance(tmp_path, m
         response = client.post(f'/api/projects/{project}/website/regenerate', json=body(site).model_dump())
         assert response.status_code == 200
         run = response.json()
+        assert app.state.store.job(run['jobs'][0])['request']['runtime_image'] == image_id
         assert client.post('/api/website-runs/' + run['id'] + '/cancel').json()['state'] == 'cancelled'
         generic = client.post('/api/jobs/' + run['jobs'][0] + '/retry', json={})
-        assert generic.status_code == 400 and 'individual output in Build Page' in generic.json()['error']
+        assert generic.status_code == 400 and 'individual output in Build Website' in generic.json()['error']
         retried = client.post('/api/website-runs/' + run['id'] + '/retry').json()
         assert retried['request']['retry_of'] == run['id']
         client.post('/api/website-runs/' + retried['id'] + '/cancel')

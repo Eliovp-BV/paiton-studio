@@ -27,11 +27,10 @@ def create(client, project, name='Document expert'):
 
 def enable(client, project, server):
     base = f"/api/projects/{project}/mcp-servers/{server['id']}"
-    assert client.post(base, json={'enabled':True}).status_code == 200
-    config = client.get(base+'/config').json()
-    entry = next(iter(config['mcpServers'].values()))
-    assert entry['url'] == 'http://testserver/mcp/agents/'
-    return entry['headers']['Authorization']
+    response = client.post(base, json={'enabled':True})
+    assert response.status_code == 200
+    assert client.get(base+'/config').status_code == 400
+    return 'Bearer '+response.json()['token']
 
 
 def rpc(c, auth, method, params=None, origin=None):
@@ -79,8 +78,9 @@ def test_protocol_scope_revocation_and_durable_retry(app_client):
     assert tool(c,new_auth,'get_result',{'request_id':result['request_id']})['isError']
     c.post(f"/api/projects/{p}/mcp-servers/{a['id']}",json={'enabled':False})
     assert rpc(c,new_auth,'tools/list').status_code==401
-    # Mail credentials cannot grant access to agent tools, or vice versa.
-    assert c.post('/mcp/',headers={'Authorization':other},json={}).status_code==401
+    # The retired Mail MCP endpoint serves nothing; agent tokens only reach /mcp/agents.
+    assert c.post('/mcp/',headers={'Authorization':other},json={}).status_code==404
+    assert c.post('/mcp/',json={}).status_code==401
 
 
 def test_two_step_results_and_project_quota(app_client):

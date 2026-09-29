@@ -1,0 +1,191 @@
+.completion-inbox {
+  position: relative;
+}
+.completion-inbox-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  white-space: nowrap;
+}
+.completion-inbox-badge {
+  background: var(--accent, #f2d598);
+  color: var(--on-accent, #221b0d);
+  min-width: 20px;
+  padding: 1px 5px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 700;
+  text-align: center;
+}
+.completion-inbox-panel {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 10px);
+  width: min(440px, calc(100vw - 24px));
+  max-height: min(720px, calc(100dvh - 90px));
+  display: flex;
+  flex-direction: column;
+  z-index: 90;
+  color: var(--studio-text, #f3f3ef);
+  background: var(--studio-surface, #1b1c14);
+  border: 1px solid var(--studio-border, #ffffff13);
+  border-radius: 14px;
+  box-shadow: var(--studio-shadow, 0 16px 45px #0007);
+  overflow: auto;
+  text-align: left;
+}
+.completion-inbox-panel header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding: 16px;
+  gap: 12px;
+}
+.completion-inbox-panel header p {
+  margin: 4px 0 0;
+  color: var(--muted, #a8ac93);
+  font-size: 12px;
+}
+.completion-inbox-panel button {
+  font-size: 12px;
+}
+.completion-inbox-controls {
+  display: flex;
+  align-items: flex-end;
+  gap: 7px;
+  padding: 0 16px 12px;
+  flex-wrap: wrap;
+  border-bottom: 1px solid var(--studio-border, #ffffff13);
+}
+.completion-inbox-controls label {
+  display: grid;
+  gap: 3px;
+  font-size: 11px;
+  margin-right: auto;
+}
+.completion-inbox-controls select {
+  max-width: 165px;
+  font-size: 12px;
+  padding: 6px;
+}
+.completion-inbox-controls button {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 7px;
+}
+.completion-inbox-error {
+  margin: 10px 16px;
+  color: #f8ae98;
+  background: #e8826618;
+  padding: 10px;
+  border-radius: 7px;
+  font-size: 12px;
+}
+.completion-inbox-error p {
+  margin: 0 0 8px;
+}
+.completion-inbox-empty {
+  padding: 28px 22px;
+  display: grid;
+  justify-items: center;
+  gap: 10px;
+  text-align: center;
+}
+.completion-inbox-empty p {
+  font-size: 12px;
+  color: var(--muted, #a8ac93);
+  margin: 0;
+}
+.completion-inbox-events {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  overflow-y: auto;
+  min-height: 0;
+  flex-shrink: 1;
+}
+.completion-inbox-events li {
+  border-bottom: 1px solid var(--studio-border, #ffffff13);
+  padding: 6px 10px 9px;
+}
+.completion-inbox-events li.completion-inbox-unread {
+  background: #f2d5980b;
+  border-left: 3px solid var(--accent, #f2d598);
+  padding-left: 7px;
+}
+.completion-inbox-open {
+  width: 100%;
+  display: grid;
+  gap: 7px;
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+  text-align: left;
+  padding: 8px 6px;
+  color: inherit;
+  font-weight: 400;
+  white-space: normal;
+}
+.completion-inbox-open:hover {
+  background: var(--studio-surface-raised, #26271d);
+}
+.completion-inbox-event-title {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 13px;
+}
+.completion-inbox-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  color: var(--muted, #a8ac93);
+  font-size: 10px;
+}
+.completion-inbox-meta time {
+  flex-basis: 100%;
+}
+.completion-inbox-state {
+  border-radius: 12px;
+  padding: 2px 6px;
+  background: #f2d59818;
+  color: var(--accent, #f2d598);
+}
+.completion-inbox-state-failed {
+  background: #e8826618;
+  color: #f8ae98;
+}
+.completion-inbox-state-needs_attention {
+  background: #f2d59820;
+  color: var(--accent, #f2d598);
+}
+.completion-inbox-read {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: 6px;
+  padding: 3px 6px;
+  background: transparent;
+  border: 0;
+  color: var(--muted, #a8ac93);
+}
+.completion-inbox-panel footer {
+  padding: 12px 16px;
+  border-top: 1px solid var(--studio-border, #ffffff13);
+  color: var(--muted, #a8ac93);
+  font-size: 11px;
+  line-height: 1.5;
+}
+@media (max-width: 620px) {
+  .completion-inbox-label {
+    display: none;
+  }
+  .completion-inbox-panel {
+    position: fixed;
+    right: 12px;
+    top: 66px;
+    max-height: calc(100dvh - 80px);
+  }
+}

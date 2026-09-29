@@ -1,3 +1,5 @@
+import OptionalWeights from "./OptionalWeights";
+import Diagnostics from "./Diagnostics";
 import React, { useEffect, useRef, useState } from "react";
 import {
   AlertCircle,
@@ -21,7 +23,7 @@ const ACTIVE_SETUP = [
 ];
 function bytes(value) {
   return Number.isFinite(value)
-    ? `${(value / 1024 ** 3).toFixed(1)} GB`
+    ? `${(value / 1024 ** 3).toFixed(1)} GiB`
     : "Size unavailable";
 }
 export default function SetupTools({ api, report, onTools }) {
@@ -188,9 +190,13 @@ export default function SetupTools({ api, report, onTools }) {
         {snapshot.tools.map((tool) => {
           const job = snapshot.jobs.find(
             (job) =>
-              job.package === tool.id && ACTIVE_SETUP.includes(job.state),
+              job.package === tool.id &&
+              !job.component &&
+              ACTIVE_SETUP.includes(job.state),
           );
-          const last = snapshot.jobs.find((job) => job.package === tool.id);
+          const last = snapshot.jobs.find(
+            (job) => job.package === tool.id && !job.component,
+          );
           return (
             <article className="setup-tool" key={tool.id}>
               <div className="section-heading">
@@ -254,7 +260,7 @@ export default function SetupTools({ api, report, onTools }) {
                       target="_blank"
                       rel="noopener noreferrer"
                     >
-                      Model source:{" "}
+                      {tool.source_label || "Package source"}:{" "}
                       {tool.source_url.replace(/^https?:\/\//, "")}
                       <ExternalLink size={12} />
                     </a>
@@ -312,11 +318,13 @@ export default function SetupTools({ api, report, onTools }) {
                   </button>
                 </div>
               ) : (
-                tool.state !== "ready" && (
+                (tool.state !== "ready" || tool.can_verify) && (
                   <div className="setup-install">
                     <button
                       className="primary"
-                      disabled={!tool.can_install || !!busy}
+                      disabled={
+                        !(tool.can_install || tool.can_verify) || !!busy
+                      }
                       onClick={() =>
                         perform(tool.id, () =>
                           api(`/setup/${tool.id}/install`, {}),
@@ -326,9 +334,11 @@ export default function SetupTools({ api, report, onTools }) {
                       <Download size={15} />
                       {busy === tool.id
                         ? "Starting setup…"
-                        : "Download & set up"}
+                        : tool.can_verify
+                          ? "Verify & repair"
+                          : "Download & set up"}
                     </button>
-                    {!tool.can_install && (
+                    {!(tool.can_install || tool.can_verify) && (
                       <span className="helper">
                         {tool.state === "manual_setup"
                           ? "This package needs the preparation described in its source."
@@ -345,6 +355,28 @@ export default function SetupTools({ api, report, onTools }) {
                     {last.state}: {last.message}
                   </p>
                 )}
+              {last &&
+                !job &&
+                ["failed", "interrupted"].includes(last.state) && (
+                  <Diagnostics
+                    api={api}
+                    endpoint={`/setup-jobs/${last.id}/diagnostics`}
+                  />
+                )}
+              {(tool.optional_components || []).map((component) => (
+                <OptionalWeights
+                  key={component.id}
+                  packageId={tool.id}
+                  component={component}
+                  api={api}
+                  disabled={Boolean(busy)}
+                  onChanged={async () => {
+                    await lifecycle.current?.pending;
+                    await refresh();
+                    await callbacks.current.onTools();
+                  }}
+                />
+              ))}
             </article>
           );
         })}

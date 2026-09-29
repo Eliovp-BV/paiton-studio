@@ -4,11 +4,12 @@ import time
 
 
 class StreamResponse:
-    def __init__(self, allow_tools=False):
+    def __init__(self, allow_tools=False, *, clock=None, wall_clock=None):
         self.allow_tools=allow_tools
+        self.clock=clock or time.monotonic; self.wall_clock=wall_clock or time.time
         self.content=''; self.calls={}; self.finish=None; self.usage=None
-        self.reasoning=False; self.started=time.monotonic(); self.first=None; self.last=None
-        self.started_at=time.time(); self.first_output_at=None
+        self.reasoning=False; self.started=self.clock(); self.first=None; self.last=None
+        self.started_at=self.wall_clock(); self.first_output_at=None; self.finished=None
 
     def feed(self, event):
         if event.get('error'): raise ValueError('The local server returned a streaming error.')
@@ -18,9 +19,13 @@ class StreamResponse:
             delta=choice.get('delta', {})
             self.reasoning |= bool(delta.get('reasoning') or delta.get('reasoning_content'))
             text=delta.get('content') or ''
-            if text or delta.get('tool_calls'):
-                now=time.monotonic(); self.first=self.first or now; self.last=now
-                self.first_output_at=self.first_output_at or time.time()
+            # Server usage includes reasoning and structured tool output, so
+            # their deltas must use the same clock as visible answer content.
+            if text or delta.get('tool_calls') or delta.get('reasoning') or delta.get('reasoning_content'):
+                now=self.clock()
+                if self.first is None:
+                    self.first=now; self.first_output_at=self.wall_clock()
+                self.last=now
             self.content+=text
             if len(self.content)>200000: raise ValueError('The reply exceeded the supported size.')
             for fragment in delta.get('tool_calls') or []:
@@ -38,7 +43,9 @@ class StreamResponse:
                     if not isinstance(piece,str): raise ValueError('Malformed tool-call fragment.')
                     call['function'][key]+=piece
                 if len(call['function']['arguments'])>120000: raise ValueError('Tool arguments are too large.')
-            if choice.get('finish_reason'): self.finish=choice['finish_reason']
+            if choice.get('finish_reason'):
+                self.finish=choice['finish_reason']
+                if self.finished is None: self.finished=self.clock()
 
     def result(self):
         calls=[self.calls[i] for i in sorted(self.calls)]
@@ -59,6 +66,6 @@ class StreamResponse:
         return dict(choices=[dict(message=message,finish_reason=self.finish)], usage=self.usage,
                     reasoning_observed=self.reasoning, timing=dict(
                         request_started_at=self.started_at, first_output_at=self.first_output_at,
-                        first_token_seconds=self.first-self.started if self.first else None,
-                        decode_seconds=self.last-self.first if self.first and self.last else None,
-                        total_seconds=time.monotonic()-self.started))
+                        first_token_seconds=self.first-self.started if self.first is not None else None,
+                        decode_seconds=self.last-self.first if self.first is not None and self.last is not None else None,
+                        total_seconds=(self.finished if self.finished is not None else self.clock())-self.started))

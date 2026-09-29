@@ -1,5 +1,5 @@
 // Standalone presentation fixture. No Studio APIs, model loading or GPU work.
-import { chromium } from "playwright";
+import { chromium } from "./browser_support.mjs";
 import { createServer } from "vite";
 import assert from "node:assert/strict";
 
@@ -16,7 +16,12 @@ function Fixture() {
 createRoot(document.getElementById('root')).render(React.createElement(Fixture));
 `;
 const server = await createServer({
-  server: { host: "127.0.0.1", port: 0, proxy: {} },
+  server: {
+    host: "127.0.0.1",
+    port: 0,
+    proxy: {},
+    watch: { ignored: ["**/*"] },
+  },
   logLevel: "error",
   cacheDir: ".local/model-preparation-vite-cache",
   optimizeDeps: { include: ["react", "react-dom/client"] },

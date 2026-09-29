@@ -77,7 +77,7 @@ def wan(manager,job):
             code="from pathlib import Path;import json;from paiton_wan.convert import convert;r=convert('/source/model.safetensors','/stage/converted.safetensors');Path('/stage/conversion.json').write_text(json.dumps(r))"
             manager.update(job,'preparing','Preparing FastWan with a lossless, CPU-only key conversion. Original weights stay intact.')
             try:
-                result=manager.run(['docker','create','--pull=never','--name',name,'--label',SETUP_OWNER_LABEL+'='+owner,'--label',SETUP_LABEL+'='+job['id'],'--network','none','--user',f'{os.getuid()}:{os.getgid()}','-v',str(original)+':/source/model.safetensors:ro','-v',str(stage)+':/stage','--entrypoint','python3',image,'-c',code],job)
+                result=manager.run(['docker','create','--pull=never','--name',name,'--label',SETUP_OWNER_LABEL+'='+owner,'--label',SETUP_LABEL+'='+job['id'],'--network','none','--cap-drop','ALL','--security-opt','no-new-privileges','--user',f'{os.getuid()}:{os.getgid()}','-v',str(original)+':/source/model.safetensors:ro','-v',str(stage)+':/stage','--entrypoint','python3',image,'-c',code],job)
                 ref=result.stdout.strip();manager.run(['docker','start','-a',ref],job,timeout=600)
             finally:
                 if not _cleanup_container(manager,ref,owner,job['id']):

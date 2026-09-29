@@ -2,7 +2,7 @@ import json
 import zipfile
 from concurrent.futures import ThreadPoolExecutor
 import pytest
-from studio.agents import Agents, AgentInput, RunInput
+from studio.agents import Agents, AgentInput, AgentUpdateInput, RunInput
 from studio.chat import Chats
 from studio.documents import import_document
 from studio.store import Store
@@ -85,3 +85,47 @@ def test_failure_stops_and_source_scope_is_enforced(setup):
     agents.tick()
     assert agents.get_run(run['id'])['state'] == 'failed'
     assert len(store.rows('SELECT id FROM jobs')) == 1
+
+
+def test_edit_preserves_active_run_snapshot_and_rejects_stale_version(setup):
+    store, project, agents = setup
+    doc = import_document(store, project['id'], 'facts.txt', b'The budget is EUR 42.')
+    agent = agents.create(project['id'], AgentInput(name='Brief', purpose='Summarise approved facts.', document_ids=[doc['id']]))
+    run = start(agents, agent)
+    edited = AgentUpdateInput(name='Reviewer', purpose='Review supplied code.', template='code-review', expected_version=1)
+    assert agents.update(agent['id'], edited)['definition']['version'] == 2
+    with pytest.raises(ValueError, match='another window'):
+        agents.update(agent['id'], edited)
+    complete(store, project, run['jobs'][0], 'Original draft')
+    agents.tick()
+    review = agents.get_run(run['id'])
+    assert review['definition'] == agent['definition']
+    assert review['instruction'] == 'Write a short factual brief.'
+    assert review['draft_text'] == 'Original draft'
+    assert review['jobs'][1]['request']['context_ids'] == [doc['id']]
+    assert 'Summarise approved facts.' in review['jobs'][1]['request']['messages'][0]['content']
+    complete(store, project, review['jobs'][1]); agents.tick()
+    next_run = start(agents, agent, 'unique-agent-run-0002')
+    assert next_run['definition']['version'] == 2
+    assert next_run['jobs'][0]['request']['context_ids'] == []
+    assert 'Do not claim to inspect a repository or execute code or tests' in next_run['jobs'][0]['request']['messages'][0]['content']
+
+
+def test_edit_validates_project_context_and_enabled_mcp_scope(setup):
+    from studio.mcp_agents import AgentServers
+    store, project, agents = setup
+    agent = agents.create(project['id'], AgentInput(name='Brief', purpose='Help'))
+    other = store.create_project('Other')
+    doc = import_document(store, other['id'], 'private.txt', b'Private facts.')
+    with pytest.raises(ValueError, match='this project'):
+        agents.update(agent['id'], AgentUpdateInput(name='Bad', purpose='Help', document_ids=[doc['id']], expected_version=1))
+    servers = AgentServers(agents)
+    server = servers.create(project['id'], agent['id'])
+    with store.connect() as db:
+        db.execute('UPDATE mcp_agent_servers SET enabled=1 WHERE id=?', (server['id'],))
+    body = AgentUpdateInput(name='Updated', purpose='A different purpose', expected_version=1)
+    with pytest.raises(ValueError, match='Disable'):
+        agents.update(agent['id'], body)
+    assert agents.agent(agent['id'])['definition']['version'] == 1
+    servers.configure(project['id'], server['id'], False)
+    assert agents.update(agent['id'], body)['definition']['name'] == 'Updated'

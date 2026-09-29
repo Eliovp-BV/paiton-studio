@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { ModelChoice } from "./WorkspaceExtras";
 import { formatElapsed, stageForJob, studioNow } from "./creationFeedback";
+import { stateLabel } from "./jobStates";
 import {
   RefinementDialog,
   RefinementReview,
@@ -388,19 +389,6 @@ export default function WebsiteBuilder({
           onDiscard={action(() => discard(inspectedRun))}
         />
       )}
-      <div className="site-intro">
-        <span className="site-icon">
-          <Globe size={23} />
-        </span>
-        <div>
-          <h2>One idea. A complete website.</h2>
-          <p>
-            Studio writes connected pages, creates artwork and brings your
-            project assets together.
-          </p>
-        </div>
-        <span className="badge ready">All local</span>
-      </div>
       {message && (
         <p role="status" className="inline-message">
           <Check size={15} />
@@ -448,6 +436,22 @@ export default function WebsiteBuilder({
               onChange={(event) => updateDraft({ brief: event.target.value })}
             />
           </label>
+          <button
+            className="primary"
+            disabled={busy || !!activeRun || !draft.brief?.trim()}
+            onClick={action(generate)}
+          >
+            <Globe size={17} />
+            {activeRun
+              ? isRefinement(activeRun)
+                ? "Creating your update…"
+                : "Creating your website…"
+              : "Generate website"}
+          </button>
+          <p className="helper">
+            A new draft is kept separate until you apply it. Your current
+            website stays available.
+          </p>
           <div className="row">
             <label>
               Pages
@@ -590,22 +594,6 @@ export default function WebsiteBuilder({
               <small>Compatible tools run in sequence on one GPU.</small>
             </span>
           </div>
-          <button
-            className="primary"
-            disabled={busy || !!activeRun || !draft.brief?.trim()}
-            onClick={action(generate)}
-          >
-            <Globe size={17} />
-            {activeRun
-              ? isRefinement(activeRun)
-                ? "Creating your update…"
-                : "Creating your website…"
-              : "Generate website"}
-          </button>
-          <p className="helper">
-            A new draft is kept separate until you apply it. Your current
-            website stays available.
-          </p>
           {activeRun && (
             <div className="site-run website-active-run">
               <div className="website-stage-heading" role="status">
@@ -738,7 +726,7 @@ export default function WebsiteBuilder({
             .slice(0, 2)
             .map((run) => (
               <div className="site-run" key={run.id}>
-                <span className="badge">{run.state}</span>
+                <span className="badge">{stateLabel(run.state)}</span>
                 <p>{run.message}</p>
                 {["failed", "cancelled"].includes(run.state) && (
                   <>

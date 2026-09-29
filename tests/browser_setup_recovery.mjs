@@ -1,5 +1,5 @@
 // Standalone component fixture: no Studio API, downloads or inference involved.
-import { chromium } from "playwright";
+import { chromium } from "./browser_support.mjs";
 import { createServer } from "vite";
 import assert from "node:assert/strict";
 const fixture = `<!doctype html><html><body><div id="root"></div><script type="module" src="/@setup-recovery"></script></body></html>`;
@@ -23,7 +23,12 @@ state.unmount=()=>root.unmount();
 root.render(React.createElement(SetupTools,{api,onTools:async()=>{state.tools++},report:e=>state.errors.push(e.message)}));
 `;
 const server = await createServer({
-  server: { host: "127.0.0.1", port: 0, proxy: {} },
+  server: {
+    host: "127.0.0.1",
+    port: 0,
+    proxy: {},
+    watch: { ignored: ["**/*"] },
+  },
   logLevel: "error",
   cacheDir: ".local/setup-recovery-vite-cache",
   optimizeDeps: { include: ["react", "react-dom/client"] },

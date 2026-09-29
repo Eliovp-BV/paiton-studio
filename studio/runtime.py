@@ -1,6 +1,7 @@
 """Own containers, not an inference engine. Never operate on shared services."""
 import json
 import hashlib
+import math
 import os
 from pathlib import Path
 import queue
@@ -9,17 +10,25 @@ import shutil
 import subprocess
 import threading
 import time
+import uuid
 
-from .chat_adapters import CHAT_PACKAGES, writing_body
+from .chat_adapters import CHAT_PACKAGES, writing_body, chat_contract
 from .docker_local import LocalDocker, DockerLocalError
 from .local_qwen3 import LocalPackageError, LocalQwen3Validator
 from .media import image_info, letterbox, video_info
 from .registry import compatibility, validate_snapshot
 from .telemetry import gpu_status
 from .store import atomic, safe_path
+from .performance import normalize_performance, response_performance
 
 ROOT=Path(__file__).resolve().parents[1]
 LABEL='dev.paiton.studio.owner'
+# Keep-ready choices in minutes. The sentinel keeps a supported text model
+# loaded with no idle expiry: it is still released on request, at shutdown,
+# or when a queued request needs the GPU for another tool.
+KEEP_READY_UNTIL_RELEASED=-1
+KEEP_READY_DEFAULT_MINUTES=15
+KEEP_READY_CHOICES=(KEEP_READY_DEFAULT_MINUTES,60,KEEP_READY_UNTIL_RELEASED)
 # Exact public cyankiwi snapshot 4bd30395... retained in the working cache.
 # Check lengths before parsing; a config-only or truncated cache is not ready.
 CODER_SUPPORT_SIZES = {
@@ -51,8 +60,12 @@ class Runtime:
         self._local_qwen3=LocalQwen3Validator()
         self._warm=None
         self._memory_policy_lock=threading.RLock()
-        self.warm_seconds=120
-        self._chat_active_until=0
+        self._active_text=None
+        self._text_hard_stops=set()
+        self.text_cancel_timeout=5.0
+        # None means no idle expiry; deadlines derive from activity timestamps.
+        self.warm_seconds=KEEP_READY_DEFAULT_MINUTES*60
+        self._chat_active_at=0
         self.docker=LocalDocker()
         self.owner_path=store.root/'owner'
         if not self.owner_path.exists():
@@ -72,6 +85,32 @@ class Runtime:
         value=self.config.get(key)
         if not value or not Path(value).is_dir(): raise RuntimeFailure('A required model package is missing. Open Creation tools for setup details.')
         return str(Path(value).resolve())
+
+    def pin_request(self, request):
+        """Record an installed artifact before enqueue, including retries."""
+        if request.get('runtime_image') or not request.get('profile'):
+            return request
+        from .setup_catalog import PACKAGES as catalog
+        package = request['profile'].get('package')
+        reference = self.config.get(catalog.get(package, {}).get('image_key'))
+        if package == 'qwen38-mxfp4':
+            # Qwen's release contract owns its image, including installations
+            # connected through checkpoint folders without an image config key.
+            from .conversation_options import image_for
+            reference = image_for(request['profile'])
+        if not reference:
+            return request  # Uninstalled requests keep the existing setup flow.
+        inspected = self.command(['image', 'inspect', reference], timeout=5)
+        if inspected.returncode:
+            raise RuntimeFailure('The selected runtime package is missing. Repair it in Settings before adding this request.')
+        try:
+            image_id = json.loads(inspected.stdout)[0]['Id']
+            if not re.fullmatch(r'sha256:[a-f0-9]{64}', image_id): raise ValueError()
+        except (ValueError, KeyError, IndexError, TypeError) as error:
+            raise RuntimeFailure('The selected runtime package could not be identified.') from error
+        selection = self.config.get('runtime_package_selections', {}).get(catalog.get(package, {}).get('image_key'), {})
+        display = selection.get('reference') if selection.get('image_id') == image_id else reference
+        return {**request, 'runtime_image': image_id, 'runtime_ref': display or reference}
 
     def chat_source(self, package, revision):
         contract=CHAT_PACKAGES[package]
@@ -101,7 +140,7 @@ class Runtime:
             return [(volume,'/base')],{'PAITON_BASE_MODEL':f"/base/hub/{contract['repository']}/snapshots/{revision}"}
         return [(self.config_path('hf_hub_dir'),'/base')],{'PAITON_BASE_MODEL':f"/base/{contract['repository']}/snapshots/{revision}"}
 
-    def preflight(self,request):
+    def preflight(self,request,*,verify_content=True):
         if request.get('task')=='meeting':
             from .meeting_runtime import preflight
             return preflight(self,request)
@@ -116,20 +155,41 @@ class Runtime:
         # any ready model or spends time launching a replacement.
         if selected['adapter']=='paiton-chat' and ('prompt' in request or 'messages' in request):
             writing_body({**request,'profile':selected})
-        image_key={'flux':'flux_image','h3':'h3_image','wan':'wan_image','fastwan':'wan_image'}.get(package)
+        if selected['adapter']=='paiton-qwen-image21' and 'prompt' in request:
+            from .qwen_image21 import validate_request, validate_source
+            validate_request({**request,'profile':selected})
+            if selected['mode']=='edit': validate_source(self.store,request)
+        image_key={'qwen-image21':'qwen_image21_image','qwen-image21-uncensored':'qwen_image21_uncensored_image',
+                   'flux':'flux_image','h3':'h3_image','wan':'wan_image','fastwan':'wan_image'}.get(package)
         if selected['adapter']=='paiton-chat':
             if package not in CHAT_PACKAGES: raise RuntimeFailure('This text model has no qualified launch contract yet.')
             image_key=CHAT_PACKAGES[package]['image_key']
-        image=self.config.get(image_key)
-        if package=='qwen38-mxfp4':
+        image=request.get('runtime_image') or self.config.get(image_key)
+        if package=='qwen38-mxfp4' and not request.get('runtime_image'):
             from .conversation_options import image_for
             image=image_for(selected)
+        if request.get('runtime_image') and not re.fullmatch(r'sha256:[a-f0-9]{64}', image):
+            raise RuntimeFailure('The saved runtime package identity is invalid. Create a new request.')
         inspected=self.command(['image','inspect',image]) if image else None
         if inspected is None or inspected.returncode: raise RuntimeFailure('The local runtime image is not installed. Open Creation tools.')
         if shutil.disk_usage(self.store.root).free<2*1024**3: raise RuntimeFailure('Less than 2 GB of free disk remains. Free space before creating media.')
-        if package=='qwen38-mxfp4':
+        if selected['adapter']=='paiton-qwen-image21':
+            from .qwen_image21 import preflight
+            try: preflight(self,inspected.stdout,selected)
+            except (ValueError,OSError,KeyError) as error:
+                raise RuntimeFailure(str(error) if isinstance(error,ValueError) else 'Qwen image files could not be verified. Repair setup in Settings.') from error
+        elif package=='qwen38-mxfp4':
             from .qwen_mxfp4 import preflight
-            try: preflight(self,image,inspected.stdout)
+            try:
+                from .qwen_mxfp4 import verify_image
+                from .conversation_options import ConversationOptions, release_spec
+                reference=verify_image(inspected.stdout,image)
+                weights=ConversationOptions.model_validate(selected.get('conversation_options',{})).weights
+                release_spec(selected.get('conversation_options'),reference)
+                # Only trusted readiness callers select metadata inspection.
+                # Request payloads cannot disable execution-time checksums.
+                preflight(self,image,inspected.stdout,weights=weights,verify_content=verify_content)
+                self._source_checks[('qwen-image',image)]=reference
             except (ValueError,OSError,KeyError) as error:
                 raise RuntimeFailure(str(error) if isinstance(error,ValueError) else 'Qwen MXFP4 files could not be verified. Open Creation tools to repair setup.') from error
         elif package in ('minicpm5-2b','gptoss','wan','fastwan'):
@@ -190,7 +250,7 @@ class Runtime:
                 check_key=(image,mounts[0][0],selected['revision'])
                 complete=check_key in self._source_checks and time.monotonic()-self._source_checks[check_key]<30
                 if not complete:
-                    probe=self.command(['run','--rm','--pull=never','--network','none','--read-only','--label',LABEL+'='+self.owner,'--entrypoint','python3','--mount','type=volume,src='+mounts[0][0]+',dst=/base,readonly,volume-nocopy',image,'-c',script,env['PAITON_BASE_MODEL']])
+                    probe=self.command(['run','--rm','--pull=never','--network','none','--read-only','--cap-drop','ALL','--security-opt','no-new-privileges','--label',LABEL+'='+self.owner,'--entrypoint','python3','--mount','type=volume,src='+mounts[0][0]+',dst=/base,readonly,volume-nocopy',image,'-c',script,env['PAITON_BASE_MODEL']])
                     complete=probe.returncode==0
                     if complete:self._source_checks[check_key]=time.monotonic()
             else:
@@ -233,20 +293,26 @@ class Runtime:
     def touch_chat(self):
         # A browser heartbeat retains an already loaded model; it never loads one.
         with self._memory_policy_lock:
-            self._chat_active_until=time.monotonic()+self.warm_seconds
+            self._chat_active_at=time.monotonic()
+
+    def request_release(self):
+        """Mark a retained tool for the worker's next idle cleanup boundary."""
+        with self._memory_policy_lock:
+            if self._active_text:
+                self._active_text['release_requested']=True
+            if self._warm:
+                self._warm={**self._warm,'releasing':True,'release_requested':True}
+                self._chat_active_at=0
+            return self.memory_status()
 
     def configure_memory_policy(self, minutes):
         """Update idle retention without loading, stopping or interrupting a tool."""
-        if type(minutes) is not int or minutes not in (2,5,15):
-            raise ValueError('Choose a supported keep-ready time: 2, 5 or 15 minutes.')
+        if type(minutes) is not int or minutes not in KEEP_READY_CHOICES:
+            raise ValueError('Choose a supported keep-ready time: 15 minutes, 1 hour, or until you release the model.')
         with self._memory_policy_lock:
-            delta=minutes*60-self.warm_seconds
-            self.warm_seconds=minutes*60
-            if self._warm:
-                self._warm={**self._warm,'until':self._warm['until']+delta}
-            # Zero denotes no browser presence; a preference must not create it.
-            if self._chat_active_until:
-                self._chat_active_until+=delta
+            # Deadlines derive from the last activity when read, so a new
+            # policy applies immediately without resetting the idle clock.
+            self.warm_seconds=None if minutes==KEEP_READY_UNTIL_RELEASED else minutes*60
 
     def memory_status(self):
         """Sanitized lifecycle record, not a live GPU residency measurement."""
@@ -255,34 +321,85 @@ class Runtime:
             warm=self._warm
             retained=None
             if warm:
-                remaining=max(0,self._warm_deadline(warm)-time.monotonic())
+                deadline=self._warm_deadline(warm)
+                remaining=None if deadline==math.inf else max(0,deadline-time.monotonic())
                 model=next((p['model'] for p in PACKAGES if p['id']==warm['package']),None)
-                retained=dict(package=warm['package'],model=model,
-                              state='releasing' if warm.get('releasing') or not remaining else 'ready',
-                              idle_remaining_seconds=round(remaining))
+                retained=dict(package=warm['package'],model=model,runtime_image=warm['image'],
+                              state='releasing' if warm.get('releasing') or remaining==0 else 'ready',
+                              idle_remaining_seconds=None if remaining is None else round(remaining))
                 if warm.get('conversation'): retained['conversation']=warm['conversation']
-            return dict(keep_ready_minutes=self.warm_seconds//60,retained_model=retained,
-                        retention_package_ids=[p for p,c in CHAT_PACKAGES.items() if c.get('keep_warm')],
-                        ram_resume_supported=False)
+            minutes=KEEP_READY_UNTIL_RELEASED if self.warm_seconds is None else self.warm_seconds//60
+            return dict(keep_ready_minutes=minutes,retained_model=retained,
+                        retention_package_ids=[p for p,c in CHAT_PACKAGES.items() if c.get('keep_warm')])
 
     def _warm_deadline(self,warm):
+        # Explicit release and failed cleanup remain pending even if another
+        # browser sends presence heartbeats or changes the retention interval.
+        if warm.get('releasing'):
+            return 0
+        if self.warm_seconds is None:
+            return math.inf
         # An unrelated GPT tab must not pin a writing-only model indefinitely.
-        presence=self._chat_active_until if CHAT_PACKAGES.get(warm['package'],{}).get('chat_presence') else 0
-        return max(warm['until'],presence)
+        # Zero denotes no browser presence; a preference never creates it.
+        presence=self._chat_active_at+self.warm_seconds if self._chat_active_at and CHAT_PACKAGES.get(warm['package'],{}).get('chat_presence') else 0
+        return max(warm['since']+self.warm_seconds,presence)
 
-    def warm_for(self,request):
+    def _qwen_reference(self, request, image=None):
+        from .conversation_options import image_for, release_spec
+        reference=image or request.get('runtime_image') or image_for(request['profile'])
+        reference=self._source_checks.get(('qwen-image',reference),reference)
+        # Unknown classic Docker IDs cannot establish a warm launch identity
+        # until preflight has tied them to an approved immutable RepoDigest.
+        return release_spec(request['profile'].get('conversation_options'),reference)['registry_image']
+
+    def _qwen_execution(self, request, image=None):
+        from .conversation_options import ConversationOptions, engine_profile, launch_identity, details
+        from .qwen_mxfp4 import source_contract
+        profile=request['profile']
+        reference=self._qwen_reference(request,image)
+        weights=ConversationOptions.model_validate(profile.get('conversation_options',{})).weights
+        sources=source_contract(self.config,reference,weights)
+        engine=engine_profile(profile.get('conversation_options'),reference,sources)
+        env={'USER':'paiton','LOGNAME':'paiton','HOME':'/models/cache',**engine['environment']}
+        cache={}
+        if engine['entrypoint_kind']=='direct-cli':
+            env.update(HOME='/cache',HF_HOME='/cache/hf',HF_HUB_CACHE='/cache/hf/hub',
+                       TORCHINDUCTOR_CACHE_DIR='/cache/inductor',TRITON_CACHE_DIR='/cache/triton',
+                       XDG_CACHE_HOME='/cache/xdg',AITER_ROOT_DIR='/cache/aiter',VLLM_CACHE_ROOT='/cache/vllm')
+            if engine.get('host_visibility'):
+                # The published launcher removes image-default GPU masks when
+                # absent on the host, and preserves explicit values, even empty.
+                env.update({key:os.environ.get(key) for key in
+                            ('ROCR_VISIBLE_DEVICES','HIP_VISIBLE_DEVICES','CUDA_VISIBLE_DEVICES')})
+            cache={'cache_variant':'rocm10-'+reference.rsplit(':',1)[-1][:16],'cache_target':'/cache'}
+        receipt={'runtime_image':reference,'weights':weights,'entrypoint_kind':engine['entrypoint_kind'],
+                 'arguments':engine['arguments'],'environment':env,'manifest_sha256':sources['manifest_sha256'],
+                 'components':{role:{'repository':component['spec']['repository'],
+                                     'revision':component['spec']['revision']}
+                               for role,component in sources['components'].items()},
+                 'cache_target':cache.get('cache_target','/models/cache')}
+        # The launch identity includes private mount paths while the public
+        # reply receipt exposes pinned source identities without host paths.
+        identity=hashlib.sha256(json.dumps({'contract':launch_identity(profile,sources,reference),
+                                          'environment':env,'cache':cache},sort_keys=True).encode()).hexdigest()
+        return dict(reference=reference,sources=sources,engine=engine,env=env,cache=cache,
+                    identity=identity,conversation=details(profile,reference),receipt=receipt)
+
+    def warm_for(self,request,finish_active=False):
         profile=request['profile']; contract=CHAT_PACKAGES.get(profile['package'],{})
         warm=self._warm
         image=self.config.get(contract.get('image_key'))
         if profile['package']=='qwen38-mxfp4':
-            from .conversation_options import image_for,launch_identity
-            image=image_for(profile)
-            if not warm or warm.get('launch_identity')!=launch_identity(profile,self.chat_source(profile['package'],profile['revision'])[0]):return False
-        return bool(warm and not warm.get('releasing') and contract.get('keep_warm')
+            try: execution=self._qwen_execution(request)
+            except (ValueError,OSError,KeyError):return False
+            image=execution['reference']
+            if not warm or warm.get('launch_identity')!=execution['identity']:return False
+        pending=bool(warm and finish_active and warm.get('release_requested'))
+        return bool(warm and (not warm.get('releasing') or pending) and contract.get('keep_warm')
                     and warm.get('package')==profile['package']
                     and warm.get('revision')==profile['revision']
-                    and warm['image']==image
-                    and time.monotonic()<self._warm_deadline(warm))
+                    and warm['image']==(request.get('runtime_image') or image)
+                    and (pending or time.monotonic()<self._warm_deadline(warm)))
 
     def warm_live(self):
         return bool(self._warm)
@@ -311,18 +428,133 @@ class Runtime:
     def check_cancel(self,job):
         if self.store.job(job['id'])['cancel']: raise Cancelled()
 
-    def start(self,job,image,args,env=None,mounts=None,entrypoint=None,workdir=None):
+    def cancel_text(self, identity, container):
+        """Claim cancellation only after this owned text server became ready."""
+        from scripts.cancellable_stream import request_cancel
+        with self._memory_policy_lock:
+            active=self._active_text
+            if (not active or active['job']!=identity or active['container']!=container
+                or not active.get('ready') or active.get('http_busy')):
+                self._text_hard_stops.add((identity,container))
+                return False
+            invocation=active.get('invocation')
+            if invocation:
+                try:request_cancel(invocation['directory'],invocation['nonce'])
+                except Exception:
+                    active['safe']=False
+                    self._text_hard_stops.add((identity,container))
+                    raise
+            return True
+
+    def finish_job(self, identity):
+        # Keep the handoff alive through the worker's terminal transaction: a
+        # Stop racing with result saving must not kill an already idle server.
+        with self._memory_policy_lock:
+            if self._active_text and self._active_text['job']==identity:
+                self._active_text=None
+            self._text_hard_stops={entry for entry in self._text_hard_stops if entry[0]!=identity}
+
+    def _remember_warm(self, request, image, container, *, cleanup_failed=False, execution=None):
+        profile=request['profile'];package=profile['package']
+        with self._memory_policy_lock:
+            active=self._active_text
+            release=bool((self._warm and self._warm['container']==container and self._warm.get('release_requested'))
+                         or (active and active['container']==container and active.get('release_requested')))
+            warm={'container':container,'image':image,'package':package,'revision':profile['revision'],'since':time.monotonic()}
+            if package=='qwen38-mxfp4':
+                execution=execution or self._qwen_execution(request,image)
+                warm.update(launch_identity=execution['identity'],conversation=execution['conversation'])
+            if release:warm.update(releasing=True,release_requested=True)
+            if cleanup_failed:warm['releasing']=True
+            self._warm=warm
+
+    def _stream_invocation(self, job, command):
+        if len(command)<5 or command[0]!='exec' or command[3]!='/studio/chat_stream.py':
+            return None
+        directory=Path(command[-1])
+        try:
+            relative=directory.relative_to('/studio-jobs/'+job['id'])
+            directory=safe_path(self.store.root/'jobs'/job['id'],str(relative))
+            request=json.loads((directory/'writing-request.json').read_text())
+            nonce=request['invocation_nonce']
+            if not isinstance(nonce,str) or not re.fullmatch('[a-f0-9]{32}',nonce):raise ValueError()
+        except (ValueError,KeyError,OSError) as error:
+            raise RuntimeFailure('The local reply invocation could not be identified safely.') from error
+        invocation=dict(directory=directory,nonce=nonce,internal=bool(request.get('internal')))
+        # A previous retry's result cannot prove that this invocation completed.
+        (directory/'writing-result.json').unlink(missing_ok=True)
+        with self._memory_policy_lock:
+            active=self._active_text
+            if active and active['job']==job['id'] and active['container']==command[1]:
+                active.update(invocation=invocation,safe=False)
+        return invocation
+
+    def _accept_stream_ack(self, job, invocation, ack, exited):
+        safe=bool(ack and exited and ack['state'] in ('cancelled','closed'))
+        if safe and ack['state']=='closed' and self.store.job(job['id'])['cancel']:
+            try:
+                result=json.loads((invocation['directory']/'writing-result.json').read_text())
+                safe=bool(result.get('invocation_nonce')==invocation['nonce'] and not result.get('error')
+                          and result['choices'][0].get('finish_reason') in ('stop','length','tool_calls'))
+            except (OSError,ValueError,KeyError,IndexError,TypeError):safe=False
+        if ack and not invocation['internal']:
+            self.store.save_partial(job['id'],ack.get('partial'))
+        with self._memory_policy_lock:
+            active=self._active_text
+            if active and active['job']==job['id'] and active.get('invocation') is invocation:
+                active.update(invocation=None,safe=safe)
+        return safe
+
+    def _cancel_stream(self, job, invocation, process):
+        from scripts.cancellable_stream import request_cancel, read_ack
+        request_cancel(invocation['directory'],invocation['nonce'])
+        # Event.wait uses a real monotonic timeout even in tests with a frozen
+        # inference clock. Never terminate docker exec before giving the relay
+        # a chance to close its in-container HTTP socket and acknowledge it.
+        deadline=time.perf_counter()+self.text_cancel_timeout
+        ack=None
+        while time.perf_counter()<deadline:
+            exited=process.poll() is not None
+            ack=read_ack(invocation['directory'],invocation['nonce'])
+            if ack and exited:break
+            threading.Event().wait(.02)
+        exited=process.poll() is not None
+        ack=read_ack(invocation['directory'],invocation['nonce'])
+        self._accept_stream_ack(job,invocation,ack,exited)
+
+    def _cancelled_text_ready(self, job, container):
+        with self._memory_policy_lock:
+            active=self._active_text
+            if (not active or active['job']!=job['id'] or active['container']!=container
+                or not active.get('ready') or not active.get('safe') or active.get('invocation')
+                or (job['id'],container) in self._text_hard_stops):
+                return False
+            port=active['port']
+        try:
+            if not self.owned(container):return False
+            self.http(container,port,'/health',timeout=5)
+            return True
+        except Exception:return False
+
+    def start(self,job,image,args,env=None,mounts=None,entrypoint=None,workdir=None,cache_variant=None,cache_target=None):
         directory=self.store.root/'jobs'/job['id']; directory.mkdir(parents=True,exist_ok=True)
         for name in ('data','data/custom_nodes','data/models','user','output','temp'):
             (directory/name).mkdir(parents=True,exist_ok=True)
-        cache=self.store.root/'runtime-cache'/job['request']['profile']['package']; cache.mkdir(parents=True,exist_ok=True)
+        cache=self.store.root/'runtime-cache'/job['request']['profile']['package']
+        if cache_variant:
+            if not re.fullmatch(r'rocm10-[a-f0-9]{16}',cache_variant) or cache_target!='/cache':
+                raise RuntimeFailure('The runtime cache contract is invalid.')
+            cache=cache/cache_variant
+        elif cache_target:
+            raise RuntimeFailure('The runtime cache target requires a pinned release.')
+        cache.mkdir(parents=True,exist_ok=True)
         command=['create','--pull=never','--name','paiton-studio-'+self.owner[:8]+'-'+job['id'][:12],'--label',LABEL+'='+self.owner,
-                 '--network','none','--log-driver','local','--log-opt','max-size=1m','--log-opt','max-file=2','--init','--device','/dev/kfd','--device','/dev/dri','--group-add',str(os.stat('/dev/kfd').st_gid),'--shm-size','2g',
-                 '--user',f'{os.getuid()}:{os.getgid()}', '-v',str(directory)+':/job','-v',str(ROOT/'scripts')+':/studio:ro','-v',str(cache)+':/models/cache','-v',str(self.store.root/'jobs')+':/studio-jobs']
+                 '--network','none','--cap-drop','ALL','--security-opt','no-new-privileges','--log-driver','local','--log-opt','max-size=1m','--log-opt','max-file=2','--init','--device','/dev/kfd','--device','/dev/dri','--group-add',str(os.stat('/dev/kfd').st_gid),'--shm-size','2g',
+                 '--user',f'{os.getuid()}:{os.getgid()}', '-v',str(directory)+':/job','-v',str(ROOT/'scripts')+':/studio:ro','-v',str(cache)+':'+(cache_target or '/models/cache')+(':rw' if cache_target else ''),'-v',str(self.store.root/'jobs')+':/studio-jobs']
         for key,value in {'HF_HUB_OFFLINE':'1','TRANSFORMERS_OFFLINE':'1','HF_DATASETS_OFFLINE':'1',
                           'HF_HOME':'/models/cache/huggingface','HF_HUB_CACHE':'/models/cache/huggingface/hub',
                           'TORCHINDUCTOR_CACHE_DIR':'/models/cache/inductor','TRITON_CACHE_DIR':'/models/cache/triton',
-                          'XDG_CACHE_HOME':'/models/cache/xdg',**(env or {})}.items(): command += ['-e',key+'='+value]
+                          'XDG_CACHE_HOME':'/models/cache/xdg',**(env or {})}.items(): command += ['-e',key if value is None else key+'='+value]
         for source,dest in mounts or []: command += ['-v',source+':'+dest+':ro']
         if workdir: command += ['-w',workdir]
         if entrypoint: command += ['--entrypoint',entrypoint]
@@ -335,6 +567,7 @@ class Runtime:
         return container,directory
 
     def stream(self,job,command,limit=1800):
+        invocation=self._stream_invocation(job,command)
         try:
             command,environment=self.docker.invocation(command)
             process=subprocess.Popen(command,env=environment,stdout=subprocess.PIPE,stderr=subprocess.STDOUT,text=True)
@@ -347,22 +580,36 @@ class Runtime:
         error_tail=''
         try:
             while process.poll() is None or not messages.empty() or thread.is_alive():
-                self.check_cancel(job)
+                if self.store.job(job['id'])['cancel']:
+                    if invocation:self._cancel_stream(job,invocation,process)
+                    raise Cancelled()
                 if time.monotonic()>deadline: raise RuntimeFailure('The local tool timed out. Your project is saved; retry when ready.')
                 try: line=messages.get(timeout=.2)
                 except queue.Empty: continue
                 error_tail=(error_tail+line)[-8000:]
                 if line.startswith('STUDIO:'):
-                    data=json.loads(line[7:])
+                    try:data=json.loads(line[7:])
+                    except (ValueError,RecursionError):continue
+                    if (not isinstance(data,dict) or data.get('state') not in ('preparing','loading','generating','saving','cancelling')
+                        or not isinstance(data.get('message'),str) or len(data['message'])>1500
+                        or (data.get('progress') is not None and not isinstance(data['progress'],dict))):continue
                     progress=data.get('progress')
                     if progress is not None:
                         previous=self.store.job(job['id']).get('progress') or {}
                         if previous.get('context'): progress={**progress,'context':previous['context']}
                     self.store.status(job['id'],data['state'],data['message'],progress)
+            if invocation:
+                from scripts.cancellable_stream import read_ack
+                self._accept_stream_ack(job,invocation,read_ack(invocation['directory'],invocation['nonce']),True)
+            self.check_cancel(job)
             if process.returncode:
-                atomic(self.store.root/'jobs'/job['id']/'runtime-error.log',error_tail.encode())
+                from .diagnostics import write_job_log, classify_failure
+                try:write_job_log(self.store,job['id'],error_tail,filename='runtime-error.log')
+                except (OSError,ValueError):pass
                 if 'out of memory' in error_tail.lower() or 'cannot allocate memory' in error_tail.lower():
                     raise RuntimeFailure('There is not enough free memory for this profile. Close another GPU application or explicitly select a supported smaller profile. Your original request is saved.')
+                failure=classify_failure(error_tail)
+                if failure['code']!='unknown':raise RuntimeFailure(failure['message'])
                 raise RuntimeFailure('The local tool stopped before completing. Check available memory and the installed package, then retry. The profile was not changed.')
         finally:
             if process.poll() is None: process.terminate()
@@ -372,7 +619,20 @@ class Runtime:
     def http(self,container,port,path,body=None,timeout=5):
         request=dict(port=port,path=path,timeout=timeout)
         if body is not None: request['body']=body
-        result=self.command(['exec','-i',container,'python3','/studio/http_bridge.py'],input=json.dumps(request),timeout=timeout+10)
+        active=None
+        if path=='/tokenize':
+            with self._memory_policy_lock:
+                if self._active_text and self._active_text['container']==container:
+                    active=self._active_text
+                    active['http_busy']=True
+            if active and self.store.job(active['job'])['cancel']:
+                active['http_busy']=False
+                raise Cancelled()
+        try:
+            result=self.command(['exec','-i',container,'python3','/studio/http_bridge.py'],input=json.dumps(request),timeout=timeout+10)
+        finally:
+            if active:
+                with self._memory_policy_lock:active['http_busy']=False
         if result.returncode: raise RuntimeFailure('The local tool is not ready.')
         return json.loads(result.stdout) if result.stdout.strip() else {}
 
@@ -395,6 +655,8 @@ class Runtime:
             return run(self,job)
         request=job['request']; profile=validate_snapshot(request['profile'],request.get('task')); package=profile['package']
         request={**request,'profile':profile}
+        with self._memory_policy_lock:
+            self._active_text=None
         self.check_cancel(job)
         # Build the exact request before entering runtime ownership. Invalid
         # internal planning messages must not trigger a costly load or release
@@ -405,8 +667,11 @@ class Runtime:
         image=self.preflight(request)
         directory=self.store.root/'jobs'/job['id'];directory.mkdir(parents=True,exist_ok=True)
         atomic(directory/'request.json',json.dumps(request).encode())
-        started=time.monotonic(); container=None;retain=False
+        started=time.monotonic(); container=None;retain=False;execution=None
         try:
+            if profile['adapter']=='paiton-qwen-image21':
+                from .qwen_image21 import run
+                return run(self,job,image,directory)
             if profile['adapter']=='paiton-wan':
                 from .release_adapters import wan_run
                 return wan_run(self,job,image,directory)
@@ -444,27 +709,51 @@ class Runtime:
                 return 'video',outputs[0],info
             if profile['adapter']!='paiton-chat' or profile['task']!='write':
                 raise RuntimeFailure('The selected model cannot perform this creation task.')
-            contract=CHAT_PACKAGES[package]
-            mounts,env=self.chat_source(package,profile['revision'])
+            if package=='qwen38-mxfp4':
+                execution=self._qwen_execution(request,image)
+                request={**request,'runtime_ref':execution['reference']}
+                body=writing_body(request)
+                contract=chat_contract(profile,execution['reference'])
+                mounts=execution['sources']['mounts']
+                env=execution['env']
+            else:
+                contract=CHAT_PACKAGES[package]
+                mounts,env=self.chat_source(package,profile['revision'])
             if package=='gptoss':
                 from .release_adapters import prepare_harmony
                 prepare_harmony(self,job,image)
-            if self.warm_for(request):
+            # Admission already chose this tool. A release click arriving now
+            # waits for this request instead of forcing a needless cold reload.
+            loading_started=time.monotonic()
+            reused=self.warm_for(request,finish_active=True)
+            if reused:
                 container=self._warm['container']
                 self.store.status(job['id'],'loading','Reusing the ready local text model.',container=container)
             else:
                 self.drop_warm()
                 args=contract['args']
                 if package=='qwen38-mxfp4':
-                    from .qwen_mxfp4 import sources
-                    args=sources(self.config)[1]
-                    from .conversation_options import engine_profile
-                    launch=directory/'engine-profile.json'
-                    atomic(launch,json.dumps(engine_profile(profile.get('conversation_options')),sort_keys=True).encode())
-                    mounts=[*mounts,(str(launch),'/opt/paiton-release/engine-profile.json')]
-                container,_=self.start(job,image,['/studio/gptoss_server.py',*args] if package=='gptoss' else args,mounts=mounts,env=env,entrypoint='python3' if package=='gptoss' else None)
+                    if execution['engine']['entrypoint_kind']=='direct-cli':
+                        args=execution['engine']['arguments']
+                    else:
+                        paths=execution['sources']['paths']
+                        args=['--offline','--target',paths['target'],'--draft',paths['draft']]
+                        launch=directory/'engine-profile.json'
+                        atomic(launch,json.dumps(execution['engine'],sort_keys=True).encode())
+                        mounts=[*mounts,(str(launch),'/opt/paiton-release/engine-profile.json')]
+                container,_=self.start(job,image,['/studio/gptoss_server.py',*args] if package=='gptoss' else args,mounts=mounts,env=env,entrypoint='python3' if package=='gptoss' else None,**(execution['cache'] if execution else {}))
                 self.command(['start',container])
+            managed_text=bool(contract.get('keep_warm') and (request.get('chat_id') or request.get('agent_run_id') or request.get('mail_draft_id') or request.get('mcp_request_id')))
+            if managed_text:
+                with self._memory_policy_lock:
+                    self._active_text=dict(job=job['id'],container=container,port=contract['port'],
+                                           invocation=None,safe=False,ready=False,release_requested=False)
             self.wait_ready(job,container,contract['port'],'/health')
+            if managed_text:
+                with self._memory_policy_lock:
+                    if (job['id'],container) not in self._text_hard_stops:
+                        self._active_text.update(ready=True,safe=True)
+            load_seconds=time.monotonic()-loading_started
             conversation_meta={}
             if request.get('chat_id') or request.get('agent_run_id'):
                 from .conversation_runner import run as run_conversation
@@ -496,7 +785,8 @@ class Runtime:
                 message='Drafting your email reply locally.' if (request.get('mail_draft_id') or request.get('mcp_request_id')) else 'Working on your agent’s '+('review.' if request.get('purpose')=='agent-review' else 'draft.') if request.get('agent_run_id') else 'Preparing your conversation reply.' if request.get('chat_id') else 'Rewriting this page from your saved copy and requested changes.' if request.get('purpose')=='website-page-copy' else 'Planning your website from your brief and selected text context.' if request.get('messages') else 'Writing your draft from your notes and selected text context.'
                 self.store.status(job['id'],'generating',message)
                 # Poll cancellation while the isolated HTTP client waits for the local response.
-                atomic(directory/'writing-request.json',json.dumps(dict(port=contract['port'],path='/v1/chat/completions',body=body,timeout=600)).encode())
+                atomic(directory/'writing-request.json',json.dumps(dict(port=contract['port'],path='/v1/chat/completions',body=body,timeout=600,
+                                                                     invocation_nonce=uuid.uuid4().hex)).encode())
                 if request.get('chat_id') or request.get('agent_run_id') or (request.get('mail_draft_id') or request.get('mcp_request_id')):
                     self.stream(job,['exec',container,'python3','/studio/chat_stream.py','/studio-jobs/'+job['id']],limit=630)
                 else:
@@ -506,29 +796,63 @@ class Runtime:
                 response=json.loads((directory/'writing-result.json').read_text()); content=response['choices'][0]['message']['content']
             if not isinstance(content,str) or not content.strip(): raise RuntimeFailure('The local model did not return a final answer. Your request is saved; retry it or shorten the request.')
             atomic(directory/'result.md',content.encode())
-            if contract.get('keep_warm') and (contract.get('retain_for_writing') or request.get('chat_id') or request.get('agent_run_id') or (request.get('mail_draft_id') or request.get('mcp_request_id'))) and not self.store.job(job['id'])['cancel']:
-                with self._memory_policy_lock:
-                    self._warm={'container':container,'image':image,'package':package,'revision':profile['revision'],'until':time.monotonic()+self.warm_seconds}
-                    if package=='qwen38-mxfp4':
-                        from .conversation_options import launch_identity,details
-                        self._warm.update(launch_identity=launch_identity(profile,self.chat_source(package,profile['revision'])[0]),conversation=details(profile))
+            if (contract.get('keep_warm') and (contract.get('retain_for_writing') or request.get('chat_id') or request.get('agent_run_id') or (request.get('mail_draft_id') or request.get('mcp_request_id')))
+                and not self.store.job(job['id'])['cancel'] and (not managed_text or self._active_text.get('safe'))):
+                self._remember_warm(request,image,container,execution=execution)
                 retain=True
-            return 'text',directory/'result.md',dict(format=request.get('format','Website plan' if request.get('messages') else 'Blog post'),context=request.get('context',''),text_only=True,finish_reason=response['choices'][0].get('finish_reason'),usage=response.get('usage'),reasoning_effort=request.get('reasoning_effort'),thinking_token_budget=body.get('thinking_token_budget'),max_output_tokens=body['max_tokens'],reasoning_observed=response.get('reasoning_observed',False),context_selection=conversation_meta.get('context'),tool_artifacts=conversation_meta.get('tool_artifacts',[]),tool_rounds=conversation_meta.get('tool_rounds',0),timing=conversation_meta.get('timing'))
+            performance=response_performance(response,replayed=conversation_meta.get('response_replayed',False))
+            performance=normalize_performance({**performance,'model_state':'warm' if reused else 'cold',
+                                               'load_seconds':load_seconds,'turn_seconds':time.monotonic()-started})
+            return 'text',directory/'result.md',dict(format=request.get('format','Website plan' if request.get('messages') else 'Blog post'),context=request.get('context',''),text_only=True,finish_reason=response['choices'][0].get('finish_reason'),usage=response.get('usage'),reasoning_effort=request.get('reasoning_effort'),thinking_token_budget=body.get('thinking_token_budget'),max_output_tokens=body['max_tokens'],reasoning_observed=response.get('reasoning_observed',False),context_selection=conversation_meta.get('context'),tool_artifacts=conversation_meta.get('tool_artifacts',[]),tool_rounds=conversation_meta.get('tool_rounds',0),timing=response.get('timing'),performance=performance,inference=conversation_meta.get('inference'),**({'conversation':execution['conversation'],'runtime_contract':execution['receipt']} if execution else {}))
+        except Cancelled:
+            if self._cancelled_text_ready(job,container):
+                self._remember_warm(request,image,container,execution=execution)
+                retain=True
+            raise
         finally:
             container=container or self.store.job(job['id']).get('container')
             if not retain:
-                if container:
+                if container and not (directory/'runtime-container.log').exists():
                     try:
                         logs=self.command(['logs','--tail','100',container])
-                        atomic(directory/'runtime-container.log',(logs.stdout+logs.stderr).encode())
+                        from .diagnostics import write_job_log
+                        write_job_log(self.store,job['id'],logs.stdout+logs.stderr)
                     except Exception:pass  # Diagnostics must never prevent owned-container cleanup.
-                self.stop(container)
+                try:self.stop(container)
+                except Exception:
+                    if container and profile.get('adapter')=='paiton-chat':
+                        # Retain ownership, not reuse permission, until recovery
+                        # confirms that this exact container has stopped.
+                        self._remember_warm(request,image,container,cleanup_failed=True,execution=execution)
+                    raise
                 if self._warm and self._warm['container']==container:self._warm=None
+
+    def video_recoverable(self,job):
+        """Cheap per-adapter gate for the Recover action; recover_video still validates the media.
+
+        Only the H3 adapter saves clips that the recovery checks accept. Wan and
+        FastWan clips are silent by contract and bind a source image through a
+        different graph node, so their failed requests are never offered recovery.
+        """
+        request=job.get('request') or {}
+        if job.get('state')!='failed' or request.get('task')!='video' or (request.get('profile') or {}).get('adapter')!='paiton-h3':
+            return False
+        directory=self.store.root/'jobs'/job['id']
+        try:
+            record=json.loads((directory/'result.json').read_text())
+        except (OSError,ValueError):
+            return False
+        status=record.get('status') if isinstance(record,dict) else None
+        if not isinstance(status,dict) or not status.get('completed') or len(list((directory/'output').glob('*.mp4')))!=1:
+            return False
+        return not request.get('source') or all((directory/name).is_file() for name in ('workflow.json','input.png'))
 
     def recover_video(self,job):
         """Recover a completed, validated file; this never resumes GPU computation."""
         if job['state']!='failed' or job['request']['task']!='video':
             raise ValueError('Only a failed video request with a completed file can be recovered.')
+        if (job['request'].get('profile') or {}).get('adapter')!='paiton-h3':
+            raise ValueError('Only the Video tool (H3) can recover a saved output. Retry the request instead.')
         directory=self.store.root/'jobs'/job['id']
         result=directory/'result.json'
         if not result.is_file() or not json.loads(result.read_text()).get('status',{}).get('completed'):

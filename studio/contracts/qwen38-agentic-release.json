@@ -1,6 +1,6 @@
 {
-  "schema": 1,
-  "release": "agentic-v1.1.0",
+  "schema": 3,
+  "release": "studio-qwen38-rocm10-unified-20260928",
   "metadata_status": "release-metadata",
   "source_repository": "https://github.com/Eliovp-BV/paiton-vllm-plugin",
   "registry_repository": "ghcr.io/eliovp/paiton-vllm-plugin",
@@ -9,69 +9,95 @@
     "arch": "gfx1201",
     "qualified_gpu": "Radeon AI PRO R9700 32 GB"
   },
-  "vllm_version": "0.28.0+rocm723",
-  "base": {
-    "registry_image": "ghcr.io/eliovp/paiton-vllm-plugin@sha256:9b2dae214076d35de785e073b31294b033a376b16e6bc1ec1fdada4e54d96c59",
-    "registry_tag": "ghcr.io/eliovp/paiton-vllm-plugin:qwen38-mxfp4-dflash2-rdna4-v1.0.0",
-    "original_tag_and_digest_preserved": true
-  },
-  "native_runtime": {
-    "unchanged_from_base": true,
-    "artifact_count": 16,
-    "native_binaries_and_manifests_hash_verified": true,
-    "public_plugin_unchanged_from_base": true,
-    "native_independent_load_verified": true,
-    "compiler_required_by_end_user": false
-  },
-  "distribution_changes": [
-    "Public container entrypoint",
-    "Selected agentic engine profile",
-    "Sanitized OCI labels"
-  ],
-  "checkpoint_lock": {
-    "file": "checkpoint.lock.json",
-    "sha256": "a509a4e44383752a1115c795ba8ad6295780bd9392571a2cdeec3340e7378baa",
-    "models": {
-      "target": {
-        "repository": "amd/Qwen3.8-27B-Quark-AWQ-MXFP4",
-        "revision": "5233554c5fa56afda40150556b95573c2d7d29c0"
-      },
-      "draft": {
-        "repository": "tcclaviger/Qwen3.8-27B-DFlash2-FP8",
-        "revision": "ee0cb26a8279b7910cc28d82a8a3e15e4728d56f"
-      }
-    }
-  },
-  "entrypoint": {
-    "file": "container_entrypoint.py",
-    "sha256": "16d6f89a72ce433c7b58d6283af3228f4104a6cae0ee495bdda8d88ec38d5a47"
-  },
-  "shared_settings": {
-    "served_model_name": "Qwen3.8-27B-Quark-AWQ-MXFP4",
-    "tensor_parallel_size": 1,
-    "dtype": "bfloat16",
-    "kv_cache_dtype": "fp8",
-    "max_num_batched_tokens": 4096,
-    "chunked_prefill": true,
-    "num_speculative_tokens": 7,
-    "tool_call_parser": "qwen3_xml",
-    "reasoning_parser": "qwen3",
-    "default_chat_template_kwargs": {
-      "enable_thinking": false
-    },
-    "request_thinking_override_supported": true,
-    "prefix_caching": false,
-    "mamba_cache_mode": "none",
-    "async_scheduling": false,
-    "cache_volume": "paiton-qwen38-mxfp4-cache"
-  },
   "context_limit_semantics": "Total tokenized prompt, including chat/tool template, plus generated output",
   "images": {
+    "64k": {
+      "registry_tag": "ghcr.io/eliovp/paiton-vllm-plugin:qwen38-rocm10-vllm029-20260928-r1",
+      "registry_image": "ghcr.io/eliovp/paiton-vllm-plugin@sha256:487c97d51e5b4a3fcd0a206e53d842a52dd56a199d8ee3e884f48815093a80d4",
+      "image_index_digest": "sha256:487c97d51e5b4a3fcd0a206e53d842a52dd56a199d8ee3e884f48815093a80d4",
+      "entrypoint_kind": "direct-cli",
+      "unified_context": true,
+      "profile_file": "qwen38-unified-20260928.json",
+      "profile_sha256": "7576118ef7672e6a36043292be7448431cd3c8f22ffaed7ce689d009b5d2e0cd",
+      "vllm_version": "0.29",
+      "checkpoint_file": "qwen38-rocm10-checkpoints.json",
+      "checkpoint_sha256": "79041c6f2670355e72ecc9efa7f9c9c46bd04b0c87bdbf12215b30d5170a3adf",
+      "max_model_len": 65536,
+      "draft_max_model_len": 65536,
+      "max_num_seqs": 8,
+      "kv_cache_memory_bytes": 6535819798,
+      "w3a4_kv_cache_memory_bytes": 8859648000,
+      "w3a4_aggregate_kv_tokens": 393216,
+      "weights": [
+        "mxfp4",
+        "w3a4"
+      ],
+      "vision_enabled": false,
+      "publication": {
+        "published": true,
+        "published_at": "2026-09-28",
+        "anonymous_manifest_access": true
+      },
+      "limits": [
+        "Studio uses text-only serving; image inputs remain unsupported.",
+        "The W3A4 release profile uses KV4; prefix caching and 200K use the chat profile with an 8 GiB FP8 cache.",
+        "The 393216-token W3A4 capacity is the published aggregate cache capacity, not a per-request context limit.",
+        "Historical queued requests retain their saved image and launch contract."
+      ],
+      "source": {
+        "commit": "a2496827b761c284840c7813d584eb0b044d6c79",
+        "url": "https://raw.githubusercontent.com/Eliovp-BV/paiton-vllm-plugin/a2496827b761c284840c7813d584eb0b044d6c79/models/Qwen3.8-MXFP4-DFlash2/launch-rocm10.py",
+        "sha256": "d71c54538f71215883008740e56437d7e5b249d41f75ee63652bd53587f55f4d"
+      }
+    },
+    "200k": {
+      "registry_tag": "ghcr.io/eliovp/paiton-vllm-plugin:qwen38-rocm10-vllm029-20260928-r1",
+      "registry_image": "ghcr.io/eliovp/paiton-vllm-plugin@sha256:487c97d51e5b4a3fcd0a206e53d842a52dd56a199d8ee3e884f48815093a80d4",
+      "image_index_digest": "sha256:487c97d51e5b4a3fcd0a206e53d842a52dd56a199d8ee3e884f48815093a80d4",
+      "entrypoint_kind": "direct-cli",
+      "unified_context": true,
+      "profile_file": "qwen38-unified-20260928.json",
+      "profile_sha256": "7576118ef7672e6a36043292be7448431cd3c8f22ffaed7ce689d009b5d2e0cd",
+      "vllm_version": "0.29",
+      "checkpoint_file": "qwen38-rocm10-checkpoints.json",
+      "checkpoint_sha256": "79041c6f2670355e72ecc9efa7f9c9c46bd04b0c87bdbf12215b30d5170a3adf",
+      "max_model_len": 200000,
+      "draft_max_model_len": 200000,
+      "max_num_seqs": 1,
+      "kv_cache_memory_bytes": 8589934592,
+      "w3a4_kv_cache_memory_bytes": 8589934592,
+      "w3a4_aggregate_kv_tokens": null,
+      "weights": [
+        "mxfp4",
+        "w3a4"
+      ],
+      "vision_enabled": false,
+      "publication": {
+        "published": true,
+        "published_at": "2026-09-28",
+        "anonymous_manifest_access": true
+      },
+      "limits": [
+        "Studio uses text-only serving; image inputs remain unsupported.",
+        "The W3A4 release profile uses KV4; prefix caching and 200K use the chat profile with an 8 GiB FP8 cache.",
+        "The 393216-token W3A4 capacity is the published aggregate cache capacity, not a per-request context limit.",
+        "Historical queued requests retain their saved image and launch contract."
+      ],
+      "source": {
+        "commit": "a2496827b761c284840c7813d584eb0b044d6c79",
+        "url": "https://raw.githubusercontent.com/Eliovp-BV/paiton-vllm-plugin/a2496827b761c284840c7813d584eb0b044d6c79/models/Qwen3.8-MXFP4-DFlash2/launch-rocm10.py",
+        "sha256": "d71c54538f71215883008740e56437d7e5b249d41f75ee63652bd53587f55f4d"
+      },
+      "kv_cache_mode": "fp8",
+      "prefix_caching": true
+    }
+  },
+  "legacy_images": {
     "64k": {
       "registry_tag": "ghcr.io/eliovp/paiton-vllm-plugin:qwen38-mxfp4-dflash2-rdna4-v1.1.0",
       "registry_image": "ghcr.io/eliovp/paiton-vllm-plugin@sha256:c3ec2528285b484b2e0af7f571f80f1da23c1970210e4d3d09f5d2a909414186",
       "image_index_digest": "sha256:c3ec2528285b484b2e0af7f571f80f1da23c1970210e4d3d09f5d2a909414186",
-      "profile_file": "engine-profile-agentic-64k-v1.json",
+      "profile_file": "qwen38-64k-legacy-v1.1.json",
       "profile_sha256": "76ce2611f3e9831242228ec5334d8cb22c8a4e31e852ee417a64edc112badbbb",
       "max_model_len": 65536,
       "draft_max_model_len": 65536,
@@ -88,7 +114,10 @@
       "limits": [
         "Eight is the scheduler limit, not eight simultaneously resident full-length 64K requests",
         "Long prompts reduce resident concurrency at the fixed 5 GiB cache budget"
-      ]
+      ],
+      "entrypoint_kind": "legacy-profile",
+      "vllm_version": "0.28.0+rocm723",
+      "checkpoint_sha256": "a509a4e44383752a1115c795ba8ad6295780bd9392571a2cdeec3340e7378baa"
     },
     "200k": {
       "registry_tag": "ghcr.io/eliovp/paiton-vllm-plugin:qwen38-mxfp4-dflash2-rdna4-200k-v1.1.0",
@@ -113,6 +142,113 @@
         "Tight VRAM and prefill working-memory headroom on 32 GB",
         "Synthetic near-196K retrieval smoke is not broad long-context model-quality validation"
       ]
+    }
+  },
+  "legacy_release": {
+    "release": "agentic-v1.1.0",
+    "vllm_version": "0.28.0+rocm723",
+    "base": {
+      "registry_image": "ghcr.io/eliovp/paiton-vllm-plugin@sha256:9b2dae214076d35de785e073b31294b033a376b16e6bc1ec1fdada4e54d96c59",
+      "registry_tag": "ghcr.io/eliovp/paiton-vllm-plugin:qwen38-mxfp4-dflash2-rdna4-v1.0.0",
+      "original_tag_and_digest_preserved": true
+    },
+    "native_runtime": {
+      "unchanged_from_base": true,
+      "artifact_count": 16,
+      "native_binaries_and_manifests_hash_verified": true,
+      "public_plugin_unchanged_from_base": true,
+      "native_independent_load_verified": true,
+      "compiler_required_by_end_user": false
+    },
+    "distribution_changes": [
+      "Public container entrypoint",
+      "Selected agentic engine profile",
+      "Sanitized OCI labels"
+    ],
+    "checkpoint_lock": {
+      "file": "checkpoint.lock.json",
+      "sha256": "a509a4e44383752a1115c795ba8ad6295780bd9392571a2cdeec3340e7378baa",
+      "models": {
+        "target": {
+          "repository": "amd/Qwen3.8-27B-Quark-AWQ-MXFP4",
+          "revision": "5233554c5fa56afda40150556b95573c2d7d29c0"
+        },
+        "draft": {
+          "repository": "tcclaviger/Qwen3.8-27B-DFlash2-FP8",
+          "revision": "ee0cb26a8279b7910cc28d82a8a3e15e4728d56f"
+        }
+      }
+    },
+    "entrypoint": {
+      "file": "container_entrypoint.py",
+      "sha256": "16d6f89a72ce433c7b58d6283af3228f4104a6cae0ee495bdda8d88ec38d5a47"
+    },
+    "shared_settings": {
+      "served_model_name": "Qwen3.8-27B-Quark-AWQ-MXFP4",
+      "tensor_parallel_size": 1,
+      "dtype": "bfloat16",
+      "kv_cache_dtype": "fp8",
+      "max_num_batched_tokens": 4096,
+      "chunked_prefill": true,
+      "num_speculative_tokens": 7,
+      "tool_call_parser": "qwen3_xml",
+      "reasoning_parser": "qwen3",
+      "default_chat_template_kwargs": {
+        "enable_thinking": false
+      },
+      "request_thinking_override_supported": true,
+      "prefix_caching": false,
+      "mamba_cache_mode": "none",
+      "async_scheduling": false,
+      "cache_volume": "paiton-qwen38-mxfp4-cache"
+    }
+  },
+  "previous_images": {
+    "64k": {
+      "registry_tag": "ghcr.io/eliovp/paiton-vllm-plugin:qwen38-rocm10-vllm029-65k-20260926-w3a4-r1",
+      "registry_image": "ghcr.io/eliovp/paiton-vllm-plugin@sha256:c4134aba665f6dd3b89354a43be2b5b814f7078db456351647a3f1b106a0da49",
+      "image_index_digest": "sha256:c4134aba665f6dd3b89354a43be2b5b814f7078db456351647a3f1b106a0da49",
+      "entrypoint_kind": "direct-cli",
+      "profile_file": "qwen38-64k-v1.1.json",
+      "profile_sha256": "567feb7382cdd2370a917476fc0e959cf82c6ac3983b153054e5507f4ea5dda3",
+      "vllm_version": "0.29",
+      "checkpoint_file": "qwen38-rocm10-checkpoints.json",
+      "checkpoint_sha256": "79041c6f2670355e72ecc9efa7f9c9c46bd04b0c87bdbf12215b30d5170a3adf",
+      "max_model_len": 65536,
+      "draft_max_model_len": 65536,
+      "max_num_seqs": 8,
+      "kv_cache_memory_bytes": 6535819798,
+      "w3a4_kv_cache_memory_bytes": 9381235631,
+      "w3a4_aggregate_kv_tokens": 250578,
+      "publication": {
+        "published": true,
+        "published_at": "2026-09-27",
+        "anonymous_manifest_access": true
+      },
+      "limits": [
+        "The 250578-token W3A4 KV capacity is aggregate capacity, not a per-request context limit.",
+        "Studio retains the legacy 200K image and checkpoint for extra-long requests.",
+        "The chat prefix-cache profile uses its own 8 GiB cache budget for both weight modes."
+      ],
+      "benchmarks": {
+        "hardware": "Radeon AI PRO R9700",
+        "weighted_decode_tokens_per_second": {
+          "mxfp4": 153.8,
+          "w3a4": 184.4,
+          "change_percent": 19.9
+        },
+        "concurrency_1_to_8_decode_change_percent": "16-22",
+        "prefill_change_percent": {
+          "2K": 12.7,
+          "64K": 5.0
+        },
+        "accuracy_vs_mxfp4_points": {
+          "GSM8K": -0.38,
+          "HumanEval": -1.22,
+          "MMLU-Pro_subset": -2.86
+        },
+        "needle_percent": 100
+      }
     }
   }
 }

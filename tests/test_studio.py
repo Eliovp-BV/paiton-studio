@@ -1,3 +1,4 @@
+import asyncio
 import io
 import json
 import time
@@ -175,6 +176,26 @@ def test_recover_requires_completed_backend_record(client):
     p=project(client);j=client.post(f'/api/projects/{p}/jobs',json={'task':'video','profile_id':'video-short','prompt':'test'}).json()
     client.store.status(j['id'],'failed','Failed before generation')
     assert client.post('/api/jobs/'+j['id']+'/recover',json={}).status_code==400
+    assert next(x for x in client.get('/api/status').json()['jobs'] if x['id']==j['id'])['recoverable'] is False
+
+def test_recoverable_flag_follows_the_video_adapter(client):
+    p=project(client)
+    def failed_after_saving(selected):
+        job=client.store.enqueue(p,{'task':'video','profile':selected,'prompt':'test','seed':1})
+        client.store.status(job['id'],'failed','Interrupted after the clip was saved')
+        directory=client.store.root/'jobs'/job['id'];(directory/'output').mkdir(parents=True)
+        (directory/'result.json').write_text(json.dumps({'status':{'completed':True}}))
+        (directory/'output'/'clip_00001.mp4').write_bytes(b'')
+        return job
+    h3=failed_after_saving(profile('video-short','video'));wan=failed_after_saving(profile('wan-832-480-49','video'))
+    for compact in (False,True):
+        jobs={x['id']:x for x in client.get('/api/status',params={'compact':compact}).json()['jobs']}
+        assert jobs[h3['id']]['recoverable'] is True and jobs[wan['id']]['recoverable'] is False
+    # Silent Wan clips never pass the recovery checks, so the server refuses them even with a saved record.
+    assert client.post('/api/jobs/'+wan['id']+'/recover',json={}).status_code==400
+    assert client.store.job(wan['id'])['state']=='failed'
+    (client.store.root/'jobs'/h3['id']/'result.json').write_text(json.dumps({'status':{'completed':False}}))
+    assert next(x for x in client.get('/api/status').json()['jobs'] if x['id']==h3['id'])['recoverable'] is False
 
 def test_cancel_launch_race_still_records_owned_container(tmp_path):
     store=Store(tmp_path);p=store.create_project();j=store.enqueue(p['id'],{})
@@ -189,12 +210,42 @@ def test_cancel_at_save_boundary_reaches_terminal_state(tmp_path):
     after=store.job(j['id']);assert after['state']=='cancelled';assert after['asset']=='finished-asset'
 
 
+def test_chunked_api_bodies_are_rejected_at_the_cap_while_streaming(tmp_path):
+    from studio.app import BODY_LIMIT, BodyLimit, BodyTooLarge
+    reads = []
+    async def receive():
+        reads.append(1)
+        return {'type': 'http.request', 'body': b'x' * 8, 'more_body': True}
+    async def drain(scope, receive, send):
+        while (await receive()).get('more_body'):
+            pass
+    with pytest.raises(BodyTooLarge):
+        asyncio.run(BodyLimit(drain, limit=12)({'type': 'http', 'path': '/api/projects/p/jobs'}, receive, None))
+    assert len(reads) == 2
+    with TestClient(create_app(tmp_path, config={}, worker_enabled=False)) as c:
+        c.headers['X-Studio-Token'] = c.get('/api/session').json()['token']
+        project = c.post('/api/projects').json()['id']
+        def chunks():
+            yield b'{"prompt": "'
+            yield b'x' * BODY_LIMIT
+            yield b'"}'
+        response = c.post(f'/api/projects/{project}/jobs', content=chunks(), headers={'Content-Type': 'application/json'})
+        assert response.request.headers.get('transfer-encoding') == 'chunked'
+        assert response.status_code == 413 and response.json() == {'error': 'Choose a file smaller than 32 MB.'}
+        small = c.post(f'/api/projects/{project}/jobs', content=iter([b'{}']), headers={'Content-Type': 'application/json'})
+        assert small.status_code == 422
+
+
 def test_lan_session_and_request_protection(tmp_path, monkeypatch):
     monkeypatch.setattr('studio.network.local_hosts', lambda: {'127.0.0.1', '192.168.10.20'})
     monkeypatch.setenv('PAITON_STUDIO_PORT', '9988')
     app = create_app(tmp_path, config={}, worker_enabled=False)
-    with TestClient(app, base_url='http://192.168.10.20:9988') as c:
-        token = c.get('/api/session').json()['token']
+    owner = TestClient(app, base_url='http://127.0.0.1:9988', client=('127.0.0.1', 5000))
+    owner.headers['X-Studio-Token'] = owner.get('/api/session').json()['token']
+    code = owner.put('/api/network-access', json={'enabled': True}).json()['pairing_token']
+    with TestClient(app, base_url='http://192.168.10.20:9988', client=('192.168.10.21', 5001)) as c:
+        assert c.get('/api/session').status_code == 401
+        token = c.post('/api/session/pair', json={'code': code}).json()['token']
         headers = {'Origin': 'http://192.168.10.20:9988', 'X-Studio-Token': token}
         assert c.post('/api/projects', json={}, headers=headers).status_code == 200
         assert c.get('/api/projects').status_code == 200

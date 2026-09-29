@@ -112,6 +112,9 @@ class Store:
         self.project(project)
         identity = uid(); now = time.time()
         with self.connect() as db:
+            db.execute('BEGIN IMMEDIATE')
+            if hasattr(self, 'prepare_request'):
+                request = self.prepare_request(request)
             db.execute('INSERT INTO jobs(id,project,request,state,message,created,updated) VALUES(?,?,?,?,?,?,?)', (identity,project,json.dumps(request),'queued','Waiting for the creation tool.',now,now))
         return self.job(identity)
 
@@ -120,12 +123,25 @@ class Store:
         if not rows: raise ValueError('Request not found.')
         return rows[0]
 
+    def save_partial(self, identity, text):
+        """Persist a verified relay's last visible text without undoing Stop."""
+        if not isinstance(text, str) or not text or len(text)>200000:
+            return
+        with self.connect() as db:
+            db.execute('BEGIN IMMEDIATE')
+            row=db.execute('SELECT state,progress FROM jobs WHERE id=?',(identity,)).fetchone()
+            if row is None or row['state']=='completed':
+                return
+            progress=json.loads(row['progress']) if row['progress'] else {}
+            progress={**progress,'text':text}
+            db.execute('UPDATE jobs SET progress=?,updated=? WHERE id=?',(json.dumps(progress),time.time(),identity))
+
     def status(self, identity, state, message, progress=None, **fields):
         allowed = {'asset', 'container', 'cancel'}
         assert set(fields) <= allowed
         with self.connect() as db:
             db.execute('BEGIN IMMEDIATE')
-            current=db.execute('SELECT cancel FROM jobs WHERE id=?',(identity,)).fetchone()
+            current=db.execute('SELECT cancel,progress FROM jobs WHERE id=?',(identity,)).fetchone()
             if current and current['cancel'] and state not in ('cancelling','cancelled','failed'):
                 if state=='completed' and fields.get('asset'):
                     state='cancelled'
@@ -135,5 +151,7 @@ class Store:
                     if fields.get('container'):
                         db.execute('UPDATE jobs SET container=? WHERE id=?',(fields['container'],identity))
                     return
+            if current and state in ('cancelling','cancelled') and progress is None and current['progress']:
+                progress=json.loads(current['progress'])
             db.execute('UPDATE jobs SET state=?,message=?,progress=?,updated=?' + ''.join(f',{k}=?' for k in fields) + ' WHERE id=?', (state,message,json.dumps(progress) if progress else None,time.time(),*fields.values(),identity))
             db.execute('INSERT INTO job_events(job,state,message,progress,created) VALUES(?,?,?,?,?)',(identity,state,message,json.dumps(progress) if progress else None,time.time()))

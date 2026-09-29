@@ -37,6 +37,60 @@
   border-color: #695c42;
   color: #f7e4bd;
 }
+.gpt-history-search {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid #44473d;
+  border-radius: 9px;
+  padding: 0 8px;
+  min-width: 0;
+}
+.gpt-history-search:focus-within {
+  border-color: #d2b775;
+  outline: 1px solid #d2b775;
+}
+.gpt-history-search input {
+  width: 100%;
+  min-width: 0;
+  padding: 9px 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  outline: none;
+  color: inherit;
+  font-size: 12px;
+}
+.gpt-history-search > svg {
+  flex-shrink: 0;
+  color: #b7b9b0;
+}
+.gpt-history-search button {
+  padding: 3px;
+  border: 0;
+  flex-shrink: 0;
+}
+.gpt-history-count,
+.gpt-history-empty {
+  margin: -8px 0 0;
+  font-size: 12px;
+  line-height: 1.6;
+  color: #b7b9b0;
+}
+.gpt-chat-list .gpt-history-empty {
+  margin: 0;
+}
+.gpt-header-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.gpt-header-actions button {
+  font-size: 12px;
+  padding: 8px 11px;
+}
 .gpt-history small {
   margin-top: auto;
   color: #a9aaa4;
@@ -309,6 +363,14 @@
     padding: 0;
     gap: 8px;
   }
+  .gpt-history-count,
+  .gpt-history-empty {
+    margin: 0;
+  }
+  .gpt-header-actions {
+    max-width: 160px;
+    gap: 6px;
+  }
   .gpt-history-title,
   .gpt-history small {
     display: none;
@@ -365,4 +427,493 @@
 }
 .gpt-wait-note p {
   margin: 0.4rem 0;
+}
+
+/* Conversation workspace: organization, reply setup and explicit context. */
+.chat-workspace,
+:root .studio-shell .gpt-studio.chat-workspace {
+  grid-template-columns: minmax(220px, 260px) minmax(0, 1fr);
+  gap: 24px;
+}
+.chat-workspace .gpt-history {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 16px;
+  min-width: 0;
+}
+.chat-workspace .gpt-history small {
+  font-size: 0.76rem;
+}
+.chat-workspace .gpt-conversation,
+:root .studio-shell .chat-workspace .gpt-conversation {
+  height: auto;
+  min-height: 820px;
+}
+.chat-workspace .gpt-conversation > :not(.gpt-transcript) {
+  flex-shrink: 0;
+}
+.chat-workspace .gpt-conversation > header,
+:root .studio-shell .chat-workspace .gpt-conversation > header {
+  background: none;
+  min-height: 0;
+  display: flex;
+  gap: 20px;
+  padding: 3px 0 18px;
+  align-items: center;
+}
+.chat-workspace .gpt-conversation h1,
+:root .studio-shell .chat-workspace .gpt-conversation h1 {
+  font-size: 2rem;
+  margin: 5px 0 0;
+}
+.chat-history-tabs {
+  display: flex;
+  gap: 6px;
+}
+.chat-history-tabs button {
+  white-space: nowrap;
+  flex: 1;
+  justify-content: center;
+  padding: 8px 10px;
+  font-size: 0.8rem;
+  background: transparent;
+}
+.chat-history-tabs button[aria-pressed="true"] {
+  background: #ead4a912;
+  border-color: #c6a56766;
+  color: #f3dcae;
+}
+.chat-workspace .gpt-chat-list {
+  gap: 8px;
+}
+.chat-history-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  border: 1px solid transparent;
+  border-radius: 9px;
+  min-width: 0;
+}
+.chat-history-row .chat-history-open {
+  flex: 1;
+  min-width: 0;
+  padding: 12px 10px;
+  gap: 7px;
+  font-size: 0.87rem;
+}
+.chat-history-open span {
+  overflow-wrap: anywhere;
+}
+.chat-history-open svg {
+  flex-shrink: 0;
+}
+.chat-history-row .chat-pin {
+  padding: 7px;
+  flex-shrink: 0;
+  opacity: 0.55;
+}
+.chat-history-row:hover .chat-pin,
+.chat-history-row .chat-pin:focus-visible {
+  opacity: 1;
+}
+.chat-workspace .chat-history-row.selected {
+  background: #ead4a90d;
+  border-color: #c6a56766;
+}
+.chat-history-row.selected > button {
+  background: transparent;
+  border-color: transparent;
+}
+.chat-title-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 15px 0;
+}
+.chat-title-bar h2 {
+  flex: 1;
+  min-width: 100px;
+  font-size: 1rem;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.chat-title-bar > button {
+  padding: 7px 9px;
+  font-size: 0.8rem;
+}
+.chat-title-bar > form {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  flex-wrap: wrap;
+  width: 100%;
+}
+.chat-title-field {
+  flex: 1;
+  min-width: 150px;
+  margin: 0;
+}
+.chat-title-field input {
+  width: 100%;
+  min-width: 0;
+}
+.chat-error {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  font-size: 0.88rem;
+}
+.chat-error > span {
+  flex: 1 1 200px;
+}
+.chat-error button {
+  padding: 7px 9px;
+  font-size: 0.78rem;
+}
+.chat-notice {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  color: #cfdda8;
+  font-size: 0.8rem;
+  line-height: 1.6;
+  margin: 12px 0 0;
+}
+.chat-notice svg {
+  flex-shrink: 0;
+  margin-top: 3px;
+}
+.chat-configuration {
+  display: grid;
+  gap: 9px;
+  margin-bottom: 5px;
+}
+.chat-configuration .model-status {
+  padding: 12px 14px;
+  margin: 0;
+  border-radius: 10px;
+}
+.chat-configuration .model-status > p {
+  margin: 7px 0 0;
+  font-size: 0.76rem;
+}
+.chat-configuration .model-status > button {
+  margin-top: 7px;
+}
+.chat-reply-setup {
+  border: 1px solid var(--studio-border);
+  border-radius: 9px;
+  padding: 0 13px;
+}
+.chat-reply-setup > summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.82rem;
+  cursor: pointer;
+  padding: 12px 0;
+}
+.chat-setup-body {
+  padding: 0 0 15px;
+  display: grid;
+  gap: 12px;
+  max-height: 380px;
+  overflow: auto;
+}
+.chat-setup-body label {
+  margin: 0;
+  font-size: 0.83rem;
+}
+.chat-setup-body .helper {
+  margin: 0;
+  font-size: 0.77rem;
+}
+.chat-setup-body textarea,
+.chat-setup-body select {
+  width: 100%;
+  min-width: 0;
+}
+.chat-setup-body .actions {
+  flex-wrap: wrap;
+}
+.chat-setup-body button {
+  font-size: 0.8rem;
+  padding: 8px 11px;
+}
+.chat-workspace .gpt-transcript {
+  flex: 1 0 auto;
+  min-height: 230px;
+  max-height: 56vh;
+  padding-top: 22px;
+}
+.chat-workspace .gpt-welcome {
+  margin: 30px auto;
+}
+.chat-workspace .gpt-welcome h2 {
+  font-size: 1.7rem;
+}
+.chat-workspace .gpt-welcome > div {
+  margin-top: 22px;
+}
+.chat-workspace .gpt-welcome button {
+  font-size: 0.85rem;
+  padding: 15px;
+}
+.chat-workspace .gpt-composer {
+  margin-top: 10px;
+  padding: 12px 15px;
+  border-radius: 15px;
+}
+.chat-context-heading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 7px;
+  font-size: 0.74rem;
+  color: var(--muted);
+  margin-bottom: 9px;
+}
+.chat-context-heading > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.chat-context-heading button {
+  padding: 4px 7px;
+  font-size: 0.72rem;
+}
+.chat-workspace .gpt-files {
+  margin-bottom: 8px;
+}
+.chat-workspace .gpt-files span {
+  font-size: 0.75rem;
+}
+.chat-workspace .gpt-composer textarea {
+  min-height: 58px;
+  max-height: 150px;
+}
+.chat-setup-warning {
+  font-size: 0.8rem;
+  color: #f0d29b;
+  margin: 10px 0 0;
+}
+.chat-setup-warning button {
+  padding: 3px 7px;
+  font-size: 0.75rem;
+}
+.chat-context-details {
+  max-height: 290px;
+  overflow: auto;
+}
+.chat-context-details label {
+  font-size: 0.8rem;
+  margin: 10px 0;
+}
+.chat-context-details select {
+  width: 100%;
+  min-width: 0;
+}
+.chat-instruction-snapshot {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+@media (max-width: 1100px) {
+  .chat-workspace,
+  :root .studio-shell .gpt-studio.chat-workspace {
+    grid-template-columns: 200px minmax(0, 1fr);
+    gap: 17px;
+  }
+}
+@media (max-width: 760px) {
+  .chat-workspace,
+  :root .studio-shell .gpt-studio.chat-workspace {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+  }
+  .chat-workspace .gpt-history {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 9px;
+  }
+  .chat-workspace .gpt-history-title {
+    display: flex;
+  }
+  .chat-workspace .gpt-chat-list,
+  :root .studio-shell .chat-workspace .gpt-chat-list {
+    flex-direction: column;
+    max-height: 170px;
+  }
+  .chat-workspace .gpt-chat-list button {
+    min-width: 0;
+    max-width: none;
+  }
+  .chat-workspace .gpt-conversation,
+  :root .studio-shell .chat-workspace .gpt-conversation {
+    height: auto;
+    min-height: 700px;
+  }
+  .chat-workspace .gpt-transcript,
+  :root .studio-shell .chat-workspace .gpt-transcript {
+    min-height: 250px;
+    max-height: 65vh;
+  }
+  .chat-workspace .gpt-header-actions {
+    max-width: none;
+  }
+  .chat-workspace .gpt-header-actions button {
+    font-size: 0.72rem;
+    padding: 7px;
+  }
+  .chat-setup-body {
+    max-height: 420px;
+  }
+  .chat-workspace .gpt-welcome > div {
+    grid-template-columns: 1fr;
+  }
+  .chat-title-bar form button {
+    padding: 8px;
+    font-size: 0.75rem;
+  }
+  .chat-context-heading > span {
+    align-items: flex-start;
+    line-height: 1.5;
+  }
+  .chat-context-heading svg {
+    flex-shrink: 0;
+  }
+}
+
+.chat-sampling > summary {
+  cursor: pointer;
+}
+.chat-sampling-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+.chat-sampling input {
+  width: 100%;
+  min-width: 0;
+}
+.chat-sampling label,
+.chat-edit-reply label {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+.chat-edit-reply {
+  margin: 12px 0;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+.chat-edit-reply textarea {
+  width: 100%;
+  min-width: 0;
+  resize: vertical;
+}
+.chat-replacement-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin: 10px 0;
+}
+.chat-sampling-receipt dl {
+  margin: 8px 0;
+}
+.chat-sampling-receipt dl > div {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 2fr);
+  gap: 12px;
+  margin: 6px 0;
+}
+.chat-sampling-receipt dd {
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+@media (max-width: 600px) {
+  .chat-sampling-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.gpt-answer.gpt-markdown {
+  overflow-wrap: anywhere;
+  line-height: 1.75;
+}
+.gpt-answer.gpt-markdown p {
+  white-space: pre-wrap;
+  margin: 0.65em 0;
+}
+.gpt-answer.gpt-markdown h1,
+.gpt-answer.gpt-markdown h2,
+.gpt-answer.gpt-markdown h3,
+.gpt-answer.gpt-markdown h4,
+.gpt-answer.gpt-markdown h5,
+.gpt-answer.gpt-markdown h6 {
+  margin: 1em 0 0.5em;
+  line-height: 1.3;
+  font-family: inherit;
+}
+.gpt-answer.gpt-markdown h1 {
+  font-size: 1.5rem;
+}
+.gpt-answer.gpt-markdown h2 {
+  font-size: 1.3rem;
+}
+.gpt-answer.gpt-markdown h3 {
+  font-size: 1.15rem;
+}
+.gpt-answer.gpt-markdown h4,
+.gpt-answer.gpt-markdown h5,
+.gpt-answer.gpt-markdown h6 {
+  font-size: 1rem;
+}
+.gpt-markdown ul,
+.gpt-markdown ol {
+  padding-left: 1.5em;
+}
+.gpt-markdown li > p {
+  margin: 0.25em 0;
+}
+.gpt-markdown blockquote {
+  margin: 0.9em 0;
+  padding: 0.1em 1em;
+  border-left: 3px solid #887647;
+  color: #c7c9bc;
+}
+.gpt-markdown a {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.gpt-markdown :not(pre) > code {
+  background: #25291f;
+  border-radius: 4px;
+  padding: 0.08em 0.3em;
+  font-size: 0.9em;
+}
+.gpt-markdown-table {
+  max-width: 100%;
+  overflow: auto;
+  margin: 12px 0;
+}
+.gpt-markdown-table table {
+  width: 100%;
+  border-collapse: collapse;
+}
+.gpt-markdown-table th,
+.gpt-markdown-table td {
+  border: 1px solid #444739;
+  padding: 7px 10px;
+  text-align: left;
+}
+.gpt-markdown-table th {
+  background: #25291f;
 }
